@@ -1,0 +1,2 @@
+wallet = "wallet1"
+token_mints = ["token1", "token1", "token1"]

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package cli;
+
+service CliService {
+  rpc Init(InitRequest) returns (InitResponse);
+  rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
+  rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
+  rpc Call(CallRequest) returns (CallResponse);
+}
+
+message InitRequest {
+  string wallet = 1;
+  repeated string tokens = 2;
+}
+
+message InitResponse {
+  string client_id = 1;
+}
+
+message SubscribeRequest {  
+}
+
+message SubscribeResponse {
+  string message = 1;
+}
+
+message UnsubscribeRequest {  
+}
+
+message UnsubscribeResponse {
+  string message = 1;
+}
+
+message CallRequest {
+  string payload = 1;
+}
+
+message CallResponse {
+  string reply = 1;
+}
