@@ -111,7 +111,7 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
 
                 match client_clone.unsubscribe(unsub_request).await {
                     Ok(resp) => println!("[unsub] {}", resp.into_inner().message),
-                    Err(e) => eprintln!("Error: {:?}", e),
+                    Err(e) => println!("Error: {:?}", e),
                 }
 
                 cancel.cancel();

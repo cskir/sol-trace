@@ -13,7 +13,7 @@ path = "src/bin/server.rs"
 
 [dependencies]
 tokio = { version = "1.39", features = ["full"] }
-tokio-stream = "0.1"
+tokio-stream = { version = "0.1", features = ["net"] }
 tokio-util = "0.7"
 tonic = "0.10.2"
 prost = "0.12.6"

@@ -87,7 +87,7 @@ impl CliService for WalletService {
     ) -> Result<Response<UnsubscribeResponse>, Status> {
         let client_id = extract_client_id(&request)?;
         //let state_clone = self.state.clone();
-
+        println!("unsubscribe requested: {}", client_id);
         let mut clients = self.state.clients.write().await;
 
         match clients.get_mut(&client_id) {
