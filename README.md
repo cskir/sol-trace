@@ -1,7 +1,5 @@
 # sol-trace
 
----
-
 ## Overview
 
 Rust-based wallet tracking system for the Solana blockchain.  
@@ -16,13 +14,9 @@ This system consists of two main components:
 
 The communication between the server and clients is implemented using **gRPC**, supporting both unary RPCs (simple request/response) and server-side streaming.
 
----
-
 ## Features
 
 ...coming
-
----
 
 ## Server Responsibilities
 
@@ -42,8 +36,6 @@ The communication between the server and clients is implemented using **gRPC**, 
   - **RPC APIs** for synchronous external calls.
   - Applies internal business logic.
 
----
-
 ## Client Responsibilities (CLI)
 
 - Provides a simple user interface for:
@@ -52,8 +44,6 @@ The communication between the server and clients is implemented using **gRPC**, 
   - Managing subscriptions.
 - Uses gRPC stubs to communicate with the server.
 - Outputs received responses and streaming events in real time.
-
----
 
 ## Typical Workflow
 
