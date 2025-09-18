@@ -1,10 +1,24 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum LogSubscribeWsMessage {
+    Subscribed(LogSubscribeResponse),
+    Notification(LogsNotification),
+    UnSubscribed(LogUnsubscribeResponse),
+    Error(ErrorResponse),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LogSubscribeResponse {
+    pub result: u64,
+    pub id: u64,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct LogsNotification {
-    pub jsonrpc: String,
     pub method: String,
-    pub(crate) params: LogsParams,
+    pub params: LogsParams,
 }
 
 #[derive(Debug, Deserialize)]
@@ -29,19 +43,23 @@ pub struct LogsValue {
     pub signature: String,
     #[serde(default)]
     pub err: Option<serde_json::Value>,
-    pub logs: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct LogSubscribeResponse {
-    pub jsonrpc: String,
-    pub result: u64,
-    pub id: u64,
+    //pub logs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct LogUnsubscribeResponse {
-    pub jsonrpc: String,
     pub result: bool,
     pub id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ErrorResponse {
+    pub error: RpcError,
+    pub id: Option<u64>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RpcError {
+    pub code: i64,
+    pub message: String,
 }

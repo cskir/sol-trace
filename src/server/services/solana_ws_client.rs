@@ -14,10 +14,10 @@ use tonic::Status;
 use tungstenite::protocol::Message;
 
 use crate::proto::SubscribeResponse;
+use crate::server::domain::SubscriptionInput;
+use crate::server::domain::solana_api_messages::LogSubscribeWsMessage;
 use crate::server::domain::ws_client::WSCResult;
 use crate::server::domain::ws_client::WebSocketClient;
-use crate::server::domain::{LogSubscribeResponse, LogsNotification};
-use crate::state::SubscriptionInput;
 
 pub struct SolanaWebSocketClient {
     url: String,
@@ -37,7 +37,7 @@ impl SolanaWebSocketClient {
 
 #[async_trait]
 impl WebSocketClient for SolanaWebSocketClient {
-    async fn subscribe(
+    async fn logs_subscribe(
         &mut self,
         subscription_input: Arc<SubscriptionInput>,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
@@ -68,14 +68,13 @@ impl WebSocketClient for SolanaWebSocketClient {
 
         let mut sub_id: Option<u64> = None;
 
-        // TODO: refactor to handle the results in one enum: LogSubscribeResponse, LogsNotification, + api error
         if let Some(msg) = read_stream.next().await {
             if let Ok(tungstenite::Message::Text(txt)) = msg {
-                if let Ok(subscription_response) =
-                    serde_json::from_str::<LogSubscribeResponse>(&txt)
+                if let Ok(LogSubscribeWsMessage::Subscribed(resp)) =
+                    serde_json::from_str::<LogSubscribeWsMessage>(&txt)
                 {
-                    let subscription_id = subscription_response.result;
-                    self.write_streams.insert(subscription_id, write_stream);
+                    let subscription_id = resp.result;
+                    __self.write_streams.insert(subscription_id, write_stream);
                     sub_id = Some(subscription_id);
                 }
             }
@@ -88,25 +87,35 @@ impl WebSocketClient for SolanaWebSocketClient {
                     while let Some(msg) = read_stream.next().await {
                         match msg {
                             Ok(tungstenite::Message::Text(txt)) => {
-                                if let Ok(logs_notification) =
-                                    serde_json::from_str::<LogsNotification>(&txt)
-                                {
-                                    if logs_notification.params.result.value.err.is_none() {
-                                        let signature =
-                                            logs_notification.params.result.value.signature;
-
-                                        println!("Signature: {:?}", signature);
-
-                                        if tx
-                                            .send(Ok(SubscribeResponse { message: signature }))
-                                            .await
-                                            .is_err()
-                                        {
-                                            break;
+                                let mut stream_message: Option<String> = None;
+                                match serde_json::from_str::<LogSubscribeWsMessage>(&txt) {
+                                    Ok(LogSubscribeWsMessage::Notification(resp)) => {
+                                        if resp.params.result.value.err.is_none() {
+                                            let _signature = resp.params.result.value.signature;
                                         }
                                     }
-                                } else {
-                                    println!("Received non-log message: {}", txt);
+                                    Ok(LogSubscribeWsMessage::UnSubscribed(resp)) => {
+                                        // not sure we'll get it, the stream might end sooner
+                                        stream_message = Some(format!(
+                                            "Unsubscription success: {}",
+                                            resp.result
+                                        ));
+                                    }
+                                    Ok(LogSubscribeWsMessage::Error(resp)) => {
+                                        // ? ignore the transient stream error
+                                        stream_message =
+                                            Some(format!("Error response: {}", resp.error.message));
+                                    }
+                                    Ok(LogSubscribeWsMessage::Subscribed(_resp)) => {
+                                        //not possible, ignore it for now
+                                    }
+                                    Err(_) => {}
+                                }
+
+                                if let Some(message) = stream_message {
+                                    if tx.send(Ok(SubscribeResponse { message })).await.is_err() {
+                                        break;
+                                    }
                                 }
                             }
                             Ok(_) => {}
@@ -123,7 +132,7 @@ impl WebSocketClient for SolanaWebSocketClient {
         }
     }
 
-    async fn unsubscribe(&mut self, sub_id: u64) -> WSCResult<()> {
+    async fn logs_unsubscribe(&mut self, sub_id: u64) -> WSCResult<()> {
         if let Some(mut write_stream) = self.write_streams.remove(&sub_id) {
             let req_id = self.next_req_id;
             self.next_req_id += 1;

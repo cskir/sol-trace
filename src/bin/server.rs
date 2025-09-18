@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use sol_trace::{
+    server::states::AppState,
     server::{domain::WebSocketClient, run_server, services::SolanaWebSocketClient},
-    state::AppState,
 };
 
 #[tokio::main]

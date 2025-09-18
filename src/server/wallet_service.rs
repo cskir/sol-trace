@@ -12,7 +12,7 @@ use crate::proto::{
     UnsubscribeRequest, UnsubscribeResponse,
     cli_service_server::{CliService, CliServiceServer},
 };
-use crate::state::{AppState, ClientState, SubscriptionState};
+use crate::server::states::{AppState, ClientState, SubscriptionState};
 
 pub struct WalletService {
     state: Arc<AppState>,
@@ -57,20 +57,20 @@ impl CliService for WalletService {
 
         match clients.get_mut(&client_id) {
             Some(client_state) => {
-                if client_state.subscription.is_some() {
+                if client_state.logs_subscription.is_some() {
                     return Err(Status::failed_precondition("Subscription already exists"));
                 }
 
                 println!("call ws client subscribe: ");
 
-                if let Ok(sub_id) = client_state
+                if let Ok(subscription_id) = client_state
                     .ws_client
                     .write()
                     .await
-                    .subscribe(client_state.subscription_input.clone(), tx.clone())
+                    .logs_subscribe(client_state.subscription_input.clone(), tx.clone())
                     .await
                 {
-                    client_state.subscription = Some(SubscriptionState { sub_id: sub_id });
+                    client_state.logs_subscription = Some(SubscriptionState { subscription_id });
                 }
             }
             None => {
@@ -92,16 +92,16 @@ impl CliService for WalletService {
 
         match clients.get_mut(&client_id) {
             Some(client_state) => {
-                if let Some(subscription) = &client_state.subscription {
+                if let Some(subscription) = &client_state.logs_subscription {
                     let _ = client_state
                         .ws_client
                         .write()
                         .await
-                        .unsubscribe(subscription.sub_id)
+                        .logs_unsubscribe(subscription.subscription_id)
                         .await;
                 }
 
-                client_state.subscription = None;
+                client_state.logs_subscription = None;
             }
             None => {
                 return Err(Status::not_found("Client not found"));

@@ -6,10 +6,10 @@ use sol_trace::{
         cli_service_client::CliServiceClient, cli_service_server::CliServiceServer,
     },
     server::{
-        domain::{WSCResult, WebSocketClient},
+        domain::{SubscriptionInput, WSCResult, WebSocketClient},
+        states::AppState,
         wallet_service::WalletService,
     },
-    state::{AppState, SubscriptionInput},
 };
 
 use async_trait::async_trait;
@@ -23,7 +23,7 @@ pub struct MockWebSocketClient {}
 
 #[async_trait]
 impl WebSocketClient for MockWebSocketClient {
-    async fn subscribe(
+    async fn logs_subscribe(
         &mut self,
         _subscription_input: Arc<SubscriptionInput>,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
@@ -39,7 +39,7 @@ impl WebSocketClient for MockWebSocketClient {
         Ok(sub_id)
     }
 
-    async fn unsubscribe(&mut self, _sub_id: u64) -> WSCResult<()> {
+    async fn logs_unsubscribe(&mut self, _sub_id: u64) -> WSCResult<()> {
         Ok(())
     }
 }
