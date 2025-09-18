@@ -8,10 +8,7 @@ impl InitRequest {
         }
 
         if config.token_mints.is_empty() {
-            return Err(
-                "Warning: No token mints specified in config, subscribing to all tokens."
-                    .to_string(),
-            );
+            return Err("Error: No token mints specified in config".to_string());
         }
 
         Ok(Self {

@@ -5,8 +5,6 @@
 Rust-based wallet tracking system for the Solana blockchain.  
 It allows monitoring of wallet activity and selected tokens in real time, while also laying the groundwork for portfolio analytics and trading strategy evaluation.
 
-It is implemented in Rust, ensuring high performance, safety, and scalability.
-
 This system consists of two main components:
 
 1. **Server Application** – a backend service that exposes a gRPC API, manages client requests, and integrates with external services.
