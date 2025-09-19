@@ -31,9 +31,11 @@ impl CliService for WalletService {
     async fn init(&self, request: Request<InitRequest>) -> Result<Response<InitResponse>, Status> {
         let new_id = Uuid::new_v4();
 
+        let init_request = request.into_inner();
+
         self.state.clients.write().await.insert(
             new_id.clone(),
-            ClientState::build(request.into_inner(), self.state.ws_client_factory.clone()),
+            ClientState::build(init_request, self.state.ws_client_factory.clone()),
         );
 
         println!("Registered new client with ID: {}", new_id);

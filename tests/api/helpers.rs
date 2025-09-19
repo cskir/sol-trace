@@ -7,14 +7,18 @@ use sol_trace::{
     },
     server::{
         domain::{SubscriptionInput, WSCResult, WebSocketClient},
+        services::HashmapTokenStore,
         states::AppState,
         wallet_service::WalletService,
     },
 };
 
 use async_trait::async_trait;
-use tokio::time::{Duration, sleep};
 use tokio::{net::TcpListener, sync::mpsc};
+use tokio::{
+    sync::RwLock,
+    time::{Duration, sleep},
+};
 use tokio_stream::wrappers::TcpListenerStream;
 use tonic::{Request, Status, metadata::MetadataValue, transport::Server};
 use uuid::Uuid;
@@ -45,9 +49,10 @@ impl WebSocketClient for MockWebSocketClient {
 }
 
 async fn run_test_server(incoming: TcpListenerStream) -> Result<(), Box<dyn std::error::Error>> {
+    let token_store = Arc::new(RwLock::new(HashmapTokenStore::default()));
     let ws_client_factory: Arc<dyn Fn() -> Box<dyn WebSocketClient + Send + Sync> + Send + Sync> =
         Arc::new(move || Box::new(MockWebSocketClient {}));
-    let state = AppState::new(ws_client_factory);
+    let state = AppState::new(token_store, ws_client_factory);
     let svc = WalletService::new(Arc::new(state));
 
     Server::builder()

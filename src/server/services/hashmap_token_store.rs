@@ -23,6 +23,10 @@ impl TokenStore for HashmapTokenStore {
             None => Err(TokenStoreError::TokenNotFound),
         }
     }
+
+    async fn has_token(&self, address: &String) -> bool {
+        self.tokens.contains_key(address)
+    }
 }
 
 #[cfg(test)]
@@ -55,7 +59,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_get_user() {
+    async fn test_get_token() {
         let mut store = HashmapTokenStore::default();
         let token = Token {
             id: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned(),
@@ -78,5 +82,24 @@ mod tests {
             retr_token_not_found.unwrap_err(),
             TokenStoreError::TokenNotFound
         );
+    }
+    #[tokio::test]
+    async fn test_has_token() {
+        let mut store = HashmapTokenStore::default();
+        let token_mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned();
+
+        let token = Token {
+            id: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned(),
+            name: "Bonk".to_owned(),
+            symbol: "Bonk".to_owned(),
+            icon: None,
+            decimals: 5,
+        };
+
+        assert!(!store.has_token(&token_mint).await);
+
+        store.add_token(token).await.unwrap();
+
+        assert!(store.has_token(&token_mint).await);
     }
 }

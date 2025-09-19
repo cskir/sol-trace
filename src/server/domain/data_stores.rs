@@ -4,6 +4,7 @@ use crate::server::domain::Token;
 pub trait TokenStore {
     async fn add_token(&mut self, token: Token) -> Result<(), TokenStoreError>;
     async fn get_token(&self, id: &String) -> Result<Token, TokenStoreError>;
+    async fn has_token(&self, id: &String) -> bool;
 }
 
 #[derive(Debug, PartialEq)]
