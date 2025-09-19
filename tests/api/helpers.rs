@@ -90,9 +90,10 @@ impl TestClientApp {
                 .await
                 .unwrap();
 
+        //TODO: the Pubkey validation is not mocked (yet?)
         let init_request = InitRequest {
-            wallet: "Wallet1".to_owned(),
-            tokens: vec!["token1".to_owned()],
+            wallet: "9AhKqLR67hwapvG8SA2JFXaCshXc9nALJjpKaHZrsbkw".to_owned(),
+            tokens: vec!["DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned()],
         };
         let init_response = client.init(init_request).await.unwrap().into_inner();
 

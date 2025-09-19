@@ -13,6 +13,7 @@ use crate::proto::{
     cli_service_server::{CliService, CliServiceServer},
 };
 use crate::server::states::{AppState, ClientState, SubscriptionState};
+use crate::server::utils::validate_input;
 
 pub struct WalletService {
     state: Arc<AppState>,
@@ -33,6 +34,15 @@ impl CliService for WalletService {
 
         let init_request = request.into_inner();
 
+        validate_input(&init_request)?;
+
+        let mut token_store = self.state.token_store.write().await;
+
+        for token_mint in &init_request.tokens {
+            if !token_store.has_token(token_mint).await {
+                // todo: query client
+            }
+        }
         self.state.clients.write().await.insert(
             new_id.clone(),
             ClientState::build(init_request, self.state.ws_client_factory.clone()),
