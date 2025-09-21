@@ -1,3 +1,5 @@
+use tonic::{Code, Status};
+
 use crate::server::domain::Token;
 
 #[async_trait::async_trait]
@@ -12,4 +14,16 @@ pub enum TokenStoreError {
     TokenNotFound,
     TokenAlreadyExists,
     UnexpectedError,
+}
+
+impl From<TokenStoreError> for Status {
+    fn from(err: TokenStoreError) -> Self {
+        match err {
+            TokenStoreError::TokenNotFound => Status::new(Code::Internal, "Token not found"),
+            TokenStoreError::TokenAlreadyExists => {
+                Status::new(Code::InvalidArgument, "Token already exists")
+            }
+            TokenStoreError::UnexpectedError => Status::new(Code::Unknown, "Unexpected error"),
+        }
+    }
 }
