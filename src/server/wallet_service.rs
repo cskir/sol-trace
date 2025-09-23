@@ -12,7 +12,9 @@ use crate::proto::{
     UnsubscribeRequest, UnsubscribeResponse,
     cli_service_server::{CliService, CliServiceServer},
 };
+use crate::server::domain::TokenStoreError;
 use crate::server::states::{AppState, ClientState, SubscriptionState};
+use crate::server::utils::validate_input;
 
 pub struct WalletService {
     state: Arc<AppState>,
@@ -32,6 +34,34 @@ impl CliService for WalletService {
         let new_id = Uuid::new_v4();
 
         let init_request = request.into_inner();
+
+        validate_input(&init_request)?;
+
+        let mut token_store = self.state.token_store.write().await;
+
+        let mut tokens_to_query: Vec<String> = vec![];
+
+        for token_mint in &init_request.tokens {
+            if !token_store.has_token(token_mint).await {
+                tokens_to_query.push(token_mint.clone());
+            }
+        }
+
+        if tokens_to_query.len() > 0 {
+            let tokens = self
+                .state
+                .off_chain_rpc_client
+                .get_tokens(tokens_to_query)
+                .await
+                .map_err(|e| Status::internal(e.to_string()))?;
+
+            for token in tokens.into_iter() {
+                token_store
+                    .add_token(token)
+                    .await
+                    .map_err(TokenStoreError::from)?;
+            }
+        }
 
         self.state.clients.write().await.insert(
             new_id.clone(),
