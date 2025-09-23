@@ -43,6 +43,13 @@ pub fn get_token_account(wallet: &Pubkey, mint: &Pubkey) -> Pubkey {
     get_associated_token_address(&wallet, &mint)
 }
 
+pub fn gen_token_account(wallet: &String, mint: &String) -> String {
+    // unwrap is safe at this point
+    let wallet: Pubkey = wallet.parse().unwrap();
+    let mint: Pubkey = mint.parse().unwrap();
+    get_associated_token_address(&wallet, &mint).to_string()
+}
+
 #[cfg(test)]
 mod tests {
 

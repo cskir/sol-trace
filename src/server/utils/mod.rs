@@ -1,4 +1,4 @@
+pub mod address;
 pub mod constants;
-pub mod solana;
 
-pub use solana::*;
+pub use address::*;

@@ -1,3 +1,6 @@
+pub const WS_URL: &str = "wss://api.mainnet-beta.solana.com/";
+pub const WSOL: &str = "So11111111111111111111111111111111111111112";
+
 pub mod test {
 
     pub mod solana_data {

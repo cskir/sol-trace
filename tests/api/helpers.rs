@@ -6,7 +6,10 @@ use sol_trace::{
         cli_service_client::CliServiceClient, cli_service_server::CliServiceServer,
     },
     server::{
-        domain::{OffChainRpcClient, SubscriptionInput, Token, WSCResult, WebSocketClient},
+        domain::{
+            OffChainRpcClient, OnChainRpcClient, SubscriptionInput, Token, TransactionResponse,
+            WSCResult, WebSocketClient,
+        },
         services::HashmapTokenStore,
         states::AppState,
         wallet_service::WalletService,
@@ -62,12 +65,33 @@ impl OffChainRpcClient for MockOffChainRpcClient {
     }
 }
 
+pub struct MockOnChainRpcClient {}
+
+#[async_trait]
+impl OnChainRpcClient for MockOnChainRpcClient {
+    async fn get_transaction(
+        &self,
+        _signature: String,
+    ) -> Result<TransactionResponse, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(TransactionResponse {
+            result: None,
+            id: 1,
+        })
+    }
+}
+
 async fn run_test_server(incoming: TcpListenerStream) -> Result<(), Box<dyn std::error::Error>> {
     let token_store = Arc::new(RwLock::new(HashmapTokenStore::default()));
     let off_chain_rpc_client = Arc::new(MockOffChainRpcClient { tokens: vec![] });
+    let on_chain_rpc_client = Arc::new(MockOnChainRpcClient {});
     let ws_client_factory: Arc<dyn Fn() -> Box<dyn WebSocketClient + Send + Sync> + Send + Sync> =
         Arc::new(move || Box::new(MockWebSocketClient {}));
-    let state = AppState::new(token_store, off_chain_rpc_client, ws_client_factory);
+    let state = AppState::new(
+        token_store,
+        off_chain_rpc_client,
+        on_chain_rpc_client,
+        ws_client_factory,
+    );
     let svc = WalletService::new(Arc::new(state));
 
     Server::builder()

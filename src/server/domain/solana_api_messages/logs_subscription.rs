@@ -1,5 +1,7 @@
 use serde::Deserialize;
 
+use crate::server::domain::ErrorResponse;
+
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
 pub enum LogSubscribeWsMessage {
@@ -50,16 +52,4 @@ pub struct LogsValue {
 pub struct LogUnsubscribeResponse {
     pub result: bool,
     pub id: u64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct ErrorResponse {
-    pub error: RpcError,
-    pub id: Option<u64>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct RpcError {
-    pub code: i64,
-    pub message: String,
 }
