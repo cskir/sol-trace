@@ -15,7 +15,9 @@ use crate::server::domain::SubscriptionInput;
 use crate::server::domain::solana_api_messages::LogSubscribeWsMessage;
 use crate::server::domain::ws_client::WSCResult;
 use crate::server::domain::ws_client::WebSocketClient;
-use crate::server::states::app_state::{OffChainRpcClientType, OnChainRpcClientType};
+use crate::server::states::app_state::{
+    OffChainRpcClientType, OnChainRpcClientType, TokenStoreType,
+};
 use crate::server::utils::handle_transaction;
 
 pub struct SolanaWebSocketClient {
@@ -40,6 +42,7 @@ impl WebSocketClient for SolanaWebSocketClient {
         &mut self,
         subscription_input: Arc<SubscriptionInput>,
         off_chain_rpc_client: OffChainRpcClientType,
+        token_store: TokenStoreType,
         on_chain_rpc_client: OnChainRpcClientType,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
     ) -> WSCResult<u64> {
@@ -89,8 +92,7 @@ impl WebSocketClient for SolanaWebSocketClient {
 
                     tokio::spawn(async move {
                         while let Some(msg) = write_rx.recv().await {
-                            if let Err(e) = write_stream.send(msg).await {
-                                eprintln!("Write error: {:?}", e);
+                            if let Err(_e) = write_stream.send(msg).await {
                                 break;
                             }
                         }
@@ -116,6 +118,7 @@ impl WebSocketClient for SolanaWebSocketClient {
                                                 signature,
                                                 subscription_input.clone(),
                                                 off_chain_rpc_client.clone(),
+                                                token_store.clone(),
                                                 on_chain_rpc_client.clone(),
                                             )
                                             .await

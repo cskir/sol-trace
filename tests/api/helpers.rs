@@ -13,7 +13,7 @@ use sol_trace::{
         services::HashmapTokenStore,
         states::{
             AppState,
-            app_state::{OffChainRpcClientType, OnChainRpcClientType},
+            app_state::{OffChainRpcClientType, OnChainRpcClientType, TokenStoreType},
         },
         wallet_service::WalletService,
     },
@@ -37,6 +37,7 @@ impl WebSocketClient for MockWebSocketClient {
         &mut self,
         _subscription_input: Arc<SubscriptionInput>,
         _off_chain_rpc_client: OffChainRpcClientType,
+        _token_store: TokenStoreType,
         _on_chain_rpc_client: OnChainRpcClientType,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
     ) -> WSCResult<u64> {

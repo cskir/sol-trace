@@ -8,7 +8,7 @@ use crate::{
     proto::SubscribeResponse,
     server::{
         domain::SubscriptionInput,
-        states::app_state::{OffChainRpcClientType, OnChainRpcClientType},
+        states::app_state::{OffChainRpcClientType, OnChainRpcClientType, TokenStoreType},
     },
 };
 
@@ -20,6 +20,7 @@ pub trait WebSocketClient {
         &mut self,
         subscription_input: Arc<SubscriptionInput>,
         off_chain_rpc_client: OffChainRpcClientType,
+        tokens_tore: TokenStoreType,
         on_chain_rpc_client: OnChainRpcClientType,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
     ) -> WSCResult<u64>;

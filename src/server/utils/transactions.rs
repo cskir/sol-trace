@@ -2,14 +2,15 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::server::{
     domain::{EncodedTransaction, SubscriptionInput, TokenTrade, TradeType, TransactionMeta},
-    states::app_state::{OffChainRpcClientType, OnChainRpcClientType},
-    utils::constants::WSOL,
+    states::app_state::{OffChainRpcClientType, OnChainRpcClientType, TokenStoreType},
+    utils::{constants::WSOL, store_tokens},
 };
 
 pub async fn handle_transaction(
     signature: String,
     subscription_input: Arc<SubscriptionInput>,
     off_chain_rpc_client: OffChainRpcClientType,
+    token_store: TokenStoreType,
     on_chain_rpc_client: OnChainRpcClientType,
 ) -> Result<Option<TradeType>, Box<dyn std::error::Error + Send + Sync>> {
     let transaction = on_chain_rpc_client.get_transaction(signature).await?;
@@ -28,8 +29,13 @@ pub async fn handle_transaction(
         .and_then(|res| res.meta.as_ref());
 
     if let Some(transaction_meta) = transaction_meta {
-        let trades =
-            build_trades(transaction_meta, &subscription_input, off_chain_rpc_client).await;
+        let trades = build_trades(
+            transaction_meta,
+            &subscription_input,
+            off_chain_rpc_client,
+            token_store,
+        )
+        .await;
         return Ok(trades);
     }
 
@@ -104,6 +110,7 @@ async fn build_trades(
     transaction_meta: &TransactionMeta,
     subscription_input: &SubscriptionInput,
     off_chain_rpc_client: OffChainRpcClientType,
+    token_store: TokenStoreType,
 ) -> Option<TradeType> {
     let mut sells: Vec<TokenTrade> = vec![];
     let mut buys: Vec<TokenTrade> = vec![];
@@ -117,6 +124,14 @@ async fn build_trades(
         .get_prices(token_changes.keys().cloned().collect())
         .await
         .ok();
+
+    store_tokens(
+        &token_changes.keys().cloned().collect(),
+        off_chain_rpc_client,
+        token_store,
+    )
+    .await
+    .ok();
 
     for (mint, amount) in token_changes.into_iter() {
         let mut trade = TokenTrade::new(mint.clone(), amount.abs());
