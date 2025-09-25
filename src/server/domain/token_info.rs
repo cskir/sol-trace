@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
-pub struct Token {
+pub struct TokenInfo {
     pub id: String,
     pub name: String,
     pub symbol: String,

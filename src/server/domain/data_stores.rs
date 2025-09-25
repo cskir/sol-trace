@@ -1,11 +1,11 @@
 use tonic::{Code, Status};
 
-use crate::server::domain::Token;
+use crate::server::domain::TokenInfo;
 
 #[async_trait::async_trait]
 pub trait TokenStore {
-    async fn add_token(&mut self, token: Token) -> Result<(), TokenStoreError>;
-    async fn get_token(&self, id: &String) -> Result<Token, TokenStoreError>;
+    async fn add_token(&mut self, token: TokenInfo) -> Result<(), TokenStoreError>;
+    async fn get_token(&self, id: &String) -> Result<TokenInfo, TokenStoreError>;
     async fn has_token(&self, id: &String) -> bool;
 }
 

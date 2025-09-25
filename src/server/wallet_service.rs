@@ -99,10 +99,19 @@ impl CliService for WalletService {
                     .ws_client
                     .write()
                     .await
-                    .logs_subscribe(client_state.subscription_input.clone(), tx.clone())
+                    .logs_subscribe(
+                        client_state.subscription_input.clone(),
+                        self.state.off_chain_rpc_client.clone(),
+                        self.state.on_chain_rpc_client.clone(),
+                        tx.clone(),
+                    )
                     .await
                 {
                     client_state.logs_subscription = Some(SubscriptionState { subscription_id });
+                    println!(
+                        "wsc subscribed stored in client with id: {}",
+                        subscription_id
+                    );
                 }
             }
             None => {

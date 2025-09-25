@@ -1,10 +1,13 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use reqwest::Client;
 
-use crate::server::domain::{OffChainRpcClient, Token};
+use crate::server::domain::{OffChainRpcClient, TokenInfo, TokenPrice};
 
 pub struct JupiterRpcClient {
     token_api_url: String,
+    price_api_url: String,
     client: Client,
 }
 
@@ -12,7 +15,8 @@ impl JupiterRpcClient {
     pub fn build(client: Client) -> Self {
         let base_url = "https://lite-api.jup.ag";
         Self {
-            token_api_url: format! {"{}/tokens/v2", base_url},
+            token_api_url: format! {"{}/tokens/v2/search", base_url},
+            price_api_url: format! {"{}/price/v3", base_url},
             client,
         }
     }
@@ -24,15 +28,30 @@ impl OffChainRpcClient for JupiterRpcClient {
     async fn get_tokens(
         &self,
         tokens: Vec<String>,
-    ) -> Result<Vec<Token>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<TokenInfo>, Box<dyn std::error::Error + Send + Sync>> {
         let tokens = self
             .client
             .get(self.token_api_url.as_str())
             .query(&[("query", tokens.join(","))])
             .send()
             .await?
-            .json::<Vec<Token>>()
+            .json::<Vec<TokenInfo>>()
             .await?;
         Ok(tokens)
+    }
+
+    async fn get_prices(
+        &self,
+        tokens: Vec<String>,
+    ) -> Result<HashMap<String, TokenPrice>, Box<dyn std::error::Error + Send + Sync>> {
+        let prices = self
+            .client
+            .get(self.price_api_url.as_str())
+            .query(&[("ids", tokens.join(","))])
+            .send()
+            .await?
+            .json::<HashMap<String, TokenPrice>>()
+            .await?;
+        Ok(prices)
     }
 }

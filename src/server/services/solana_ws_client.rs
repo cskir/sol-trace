@@ -18,6 +18,8 @@ use crate::server::domain::SubscriptionInput;
 use crate::server::domain::solana_api_messages::LogSubscribeWsMessage;
 use crate::server::domain::ws_client::WSCResult;
 use crate::server::domain::ws_client::WebSocketClient;
+use crate::server::states::app_state::{OffChainRpcClientType, OnChainRpcClientType};
+use crate::server::utils::handle_transaction;
 
 pub struct SolanaWebSocketClient {
     url: String,
@@ -40,6 +42,8 @@ impl WebSocketClient for SolanaWebSocketClient {
     async fn logs_subscribe(
         &mut self,
         subscription_input: Arc<SubscriptionInput>,
+        off_chain_rpc_client: OffChainRpcClientType,
+        on_chain_rpc_client: OnChainRpcClientType,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
     ) -> WSCResult<u64> {
         println!("wsc connect requested");
@@ -53,7 +57,7 @@ impl WebSocketClient for SolanaWebSocketClient {
             "id": req_id,
             "method": "logsSubscribe",
             "params": [
-                    { "mentions": [subscription_input.wallet.clone()] },
+                    { "mentions": [subscription_input.clone().wallet.clone()] },
                     { "commitment": "finalized" }
                 ]
         });
@@ -91,7 +95,23 @@ impl WebSocketClient for SolanaWebSocketClient {
                                 match serde_json::from_str::<LogSubscribeWsMessage>(&txt) {
                                     Ok(LogSubscribeWsMessage::Notification(resp)) => {
                                         if resp.params.result.value.err.is_none() {
-                                            let _signature = resp.params.result.value.signature;
+                                            let signature = resp.params.result.value.signature;
+
+                                            handle_transaction(
+                                                signature,
+                                                subscription_input.clone(),
+                                                off_chain_rpc_client.clone(),
+                                                on_chain_rpc_client.clone(),
+                                            )
+                                            .await
+                                            .ok()
+                                            .flatten()
+                                            .map(
+                                                |trade| {
+                                                    stream_message =
+                                                        Some(format!("Trade detected: {:?}", trade))
+                                                },
+                                            );
                                         }
                                     }
                                     Ok(LogSubscribeWsMessage::UnSubscribed(resp)) => {

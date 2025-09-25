@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 
-use crate::server::domain::{Token, TokenStore, TokenStoreError};
+use crate::server::domain::{TokenInfo, TokenStore, TokenStoreError};
 
 #[derive(Default, Clone)]
 pub struct HashmapTokenStore {
-    tokens: HashMap<String, Token>,
+    tokens: HashMap<String, TokenInfo>,
 }
 
 #[async_trait::async_trait]
 impl TokenStore for HashmapTokenStore {
-    async fn add_token(&mut self, token: Token) -> Result<(), TokenStoreError> {
+    async fn add_token(&mut self, token: TokenInfo) -> Result<(), TokenStoreError> {
         if self.tokens.contains_key(&token.id) {
             return Err(TokenStoreError::TokenAlreadyExists);
         }
@@ -17,7 +17,7 @@ impl TokenStore for HashmapTokenStore {
         Ok(())
     }
 
-    async fn get_token(&self, address: &String) -> Result<Token, TokenStoreError> {
+    async fn get_token(&self, address: &String) -> Result<TokenInfo, TokenStoreError> {
         match self.tokens.get(address) {
             Some(token) => Ok(token.clone()),
             None => Err(TokenStoreError::TokenNotFound),
@@ -37,7 +37,7 @@ mod tests {
     #[tokio::test]
     async fn test_add_token() {
         let mut store = HashmapTokenStore::default();
-        let token = Token {
+        let token = TokenInfo {
             id: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned(),
             name: "Bonk".to_owned(),
             symbol: "Bonk".to_owned(),
@@ -61,7 +61,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_token() {
         let mut store = HashmapTokenStore::default();
-        let token = Token {
+        let token = TokenInfo {
             id: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned(),
             name: "Bonk".to_owned(),
             symbol: "Bonk".to_owned(),
@@ -88,7 +88,7 @@ mod tests {
         let mut store = HashmapTokenStore::default();
         let token_mint = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned();
 
-        let token = Token {
+        let token = TokenInfo {
             id: "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263".to_owned(),
             name: "Bonk".to_owned(),
             symbol: "Bonk".to_owned(),

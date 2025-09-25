@@ -7,11 +7,14 @@ use sol_trace::{
     },
     server::{
         domain::{
-            OffChainRpcClient, OnChainRpcClient, SubscriptionInput, Token, TransactionResponse,
-            WSCResult, WebSocketClient,
+            OffChainRpcClient, OnChainRpcClient, SubscriptionInput, TokenInfo, TokenPrice,
+            TransactionResponse, WSCResult, WebSocketClient,
         },
         services::HashmapTokenStore,
-        states::AppState,
+        states::{
+            AppState,
+            app_state::{OffChainRpcClientType, OnChainRpcClientType},
+        },
         wallet_service::WalletService,
     },
 };
@@ -33,6 +36,8 @@ impl WebSocketClient for MockWebSocketClient {
     async fn logs_subscribe(
         &mut self,
         _subscription_input: Arc<SubscriptionInput>,
+        _off_chain_rpc_client: OffChainRpcClientType,
+        _on_chain_rpc_client: OnChainRpcClientType,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
     ) -> WSCResult<u64> {
         let sub_id: u64 = 11111;
@@ -52,7 +57,7 @@ impl WebSocketClient for MockWebSocketClient {
 }
 
 pub struct MockOffChainRpcClient {
-    pub tokens: Vec<Token>,
+    pub tokens: Vec<TokenInfo>,
 }
 
 #[async_trait]
@@ -60,8 +65,18 @@ impl OffChainRpcClient for MockOffChainRpcClient {
     async fn get_tokens(
         &self,
         _tokens: Vec<String>,
-    ) -> Result<Vec<Token>, Box<dyn std::error::Error + Send + Sync>> {
+    ) -> Result<Vec<TokenInfo>, Box<dyn std::error::Error + Send + Sync>> {
         Ok(self.tokens.clone())
+    }
+
+    async fn get_prices(
+        &self,
+        _tokens: Vec<String>,
+    ) -> Result<
+        std::collections::HashMap<String, TokenPrice>,
+        Box<dyn std::error::Error + Send + Sync>,
+    > {
+        Ok(std::collections::HashMap::new())
     }
 }
 
