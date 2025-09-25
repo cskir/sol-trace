@@ -35,6 +35,11 @@ spl-associated-token-account = { version = "3.0.2", features = [
 spl-token = { version = "4.0.0", features = ["no-entrypoint"] }
 reqwest = { version = "0.12.4", features = ["json"] }
 futures = "0.3"
+tower-http = { version = "0.5.0", features = ["fs", "cors", "trace"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+thiserror = "1.0.58"
+color-eyre = "0.6.3"
 
 [build-dependencies]
 tonic-build = "0.10.2"

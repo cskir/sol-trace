@@ -4,14 +4,15 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::async_trait;
 use tonic::{Request, Response, Status, transport::Server};
+use tracing::error;
 use uuid::Uuid;
-//use uuid::Uuid;
 
 use crate::proto::{
     CallRequest, CallResponse, InitRequest, InitResponse, SubscribeRequest, SubscribeResponse,
     UnsubscribeRequest, UnsubscribeResponse,
     cli_service_server::{CliService, CliServiceServer},
 };
+use crate::server::domain::InputValidationError;
 use crate::server::states::{AppState, ClientState, SubscriptionState};
 use crate::server::utils::{store_tokens, validate_input};
 
@@ -23,6 +24,13 @@ impl WalletService {
     pub fn new(state: Arc<AppState>) -> Self {
         Self { state }
     }
+
+    // pub fn log_err(res: Result<(), InputValidationError>) -> Result<(), InputValidationError> {
+    //     if let Err(e) = res {
+    //         error!("Input validation error: {}", e);
+    //     }
+    //     res
+    // }
 }
 
 #[async_trait]
@@ -155,8 +163,9 @@ fn extract_client_id<T>(req: &Request<T>) -> Result<Uuid, Status> {
 
 pub async fn run_server(addr: &str, state: AppState) -> Result<(), Box<dyn std::error::Error>> {
     let svc = WalletService::new(Arc::new(state));
-    println!("Server listening on {}", addr);
+    tracing::info!("Server listening on {}", addr);
 
+    // INFO: adding TraceLayer gave trait bound error for the grpc stream sercvices
     Server::builder()
         .add_service(CliServiceServer::new(svc))
         .serve(addr.parse()?)

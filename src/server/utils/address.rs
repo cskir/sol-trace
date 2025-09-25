@@ -2,16 +2,15 @@ use std::error::Error;
 
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::solana_program::pubkey::Pubkey;
-use tonic::Status;
 
-use crate::proto::InitRequest;
+use crate::{proto::InitRequest, server::domain::InputValidationError};
 
-pub fn validate_input(init_request: &InitRequest) -> Result<(), Status> {
+pub fn validate_input(init_request: &InitRequest) -> Result<(), InputValidationError> {
     validate_address(&init_request.wallet)
-        .map_err(|_| Status::invalid_argument("Invalid wallet address"))?;
+        .map_err(|_| InputValidationError::InvalidWalletAddress)?;
 
     if init_request.tokens.len() == 0 {
-        return Err(Status::invalid_argument("Missing tokens"))?;
+        return Err(InputValidationError::MissingTokens)?;
     }
 
     let mut invalid_tokens: Vec<String> = vec![];
@@ -24,7 +23,7 @@ pub fn validate_input(init_request: &InitRequest) -> Result<(), Status> {
     }
 
     if invalid_tokens.len() > 0 {
-        return Err(Status::invalid_argument(format!(
+        return Err(InputValidationError::InvalidTokenAddress(format!(
             "Invalid token{} {}",
             if invalid_tokens.len() > 1 { "s:" } else { ":" },
             invalid_tokens.join(",")
@@ -80,7 +79,10 @@ mod tests {
         let result = validate_input(&init_request);
         assert!(result.is_err());
 
-        assert_eq!("Invalid wallet address", result.unwrap_err().message())
+        assert_eq!(
+            InputValidationError::InvalidWalletAddress,
+            result.unwrap_err()
+        )
     }
 
     #[test]
@@ -93,7 +95,7 @@ mod tests {
         let result = validate_input(&init_request);
         assert!(result.is_err());
 
-        assert_eq!("Missing tokens", result.unwrap_err().message())
+        assert_eq!(InputValidationError::MissingTokens, result.unwrap_err())
     }
 
     #[test]
@@ -107,8 +109,8 @@ mod tests {
         assert!(result.is_err());
 
         assert_eq!(
-            format!("Invalid token: {}", INVALID_TOKEN1),
-            result.unwrap_err().message()
+            InputValidationError::InvalidTokenAddress(format!("Invalid token: {}", INVALID_TOKEN1)),
+            result.unwrap_err()
         )
     }
 }

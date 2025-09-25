@@ -13,6 +13,7 @@ pub trait TokenStore {
 pub enum TokenStoreError {
     TokenNotFound,
     TokenAlreadyExists,
+    TokenIsNotAvailable(String),
     UnexpectedError,
 }
 
@@ -22,6 +23,9 @@ impl From<TokenStoreError> for Status {
             TokenStoreError::TokenNotFound => Status::new(Code::Internal, "Token not found"),
             TokenStoreError::TokenAlreadyExists => {
                 Status::new(Code::InvalidArgument, "Token already exists")
+            }
+            TokenStoreError::TokenIsNotAvailable(msg) => {
+                Status::new(Code::Unavailable, format!("Token is not available {}", msg))
             }
             TokenStoreError::UnexpectedError => Status::new(Code::Unknown, "Unexpected error"),
         }

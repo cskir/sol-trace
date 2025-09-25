@@ -5,11 +5,14 @@ use sol_trace::server::{
     run_server,
     services::{HashmapTokenStore, JupiterRpcClient, SolanaRpcClient, SolanaWebSocketClient},
     states::AppState,
+    utils::init_tracing,
 };
 use tokio::sync::RwLock;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_tracing();
+
     let addr = "127.0.0.1:50051";
 
     let token_store = Arc::new(RwLock::new(HashmapTokenStore::default()));

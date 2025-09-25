@@ -1,5 +1,3 @@
-use tonic::Status;
-
 use crate::server::{
     domain::TokenStoreError,
     states::app_state::{OffChainRpcClientType, TokenStoreType},
@@ -9,7 +7,7 @@ pub async fn store_tokens(
     token_mints: &Vec<String>,
     off_chain_rpc_client: OffChainRpcClientType,
     token_store: TokenStoreType,
-) -> Result<(), Status> {
+) -> Result<(), TokenStoreError> {
     let mut token_store = token_store.write().await;
 
     let mut tokens_to_query: Vec<String> = vec![];
@@ -24,13 +22,10 @@ pub async fn store_tokens(
         let tokens = off_chain_rpc_client
             .get_tokens(tokens_to_query)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(|e| TokenStoreError::TokenIsNotAvailable(e.to_string()))?;
 
         for token in tokens.into_iter() {
-            token_store
-                .add_token(token)
-                .await
-                .map_err(TokenStoreError::from)?;
+            token_store.add_token(token).await?;
         }
     }
     Ok(())

@@ -1,4 +1,5 @@
 pub mod data_stores;
+pub mod errors;
 pub mod off_chain_rpc_client;
 pub mod on_chain_rpc_client;
 pub mod solana_api_messages;
@@ -10,6 +11,7 @@ pub mod trade_type;
 pub mod ws_client;
 
 pub use data_stores::*;
+pub use errors::*;
 pub use off_chain_rpc_client::*;
 pub use on_chain_rpc_client::*;
 pub use solana_api_messages::*;
