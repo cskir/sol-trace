@@ -2,13 +2,10 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures_util::stream::SplitSink;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::json;
-use tokio::net::TcpStream;
-use tokio::sync::mpsc;
-use tokio_tungstenite::MaybeTlsStream;
-use tokio_tungstenite::WebSocketStream;
+use tokio::sync::{Mutex, mpsc};
+use tokio::time::{Duration, interval};
 use tokio_tungstenite::connect_async;
 use tonic::Status;
 use tungstenite::protocol::Message;
@@ -24,7 +21,7 @@ use crate::server::utils::handle_transaction;
 pub struct SolanaWebSocketClient {
     url: String,
     next_req_id: u64,
-    write_streams: HashMap<u64, SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>,
+    write_channel: Arc<Mutex<HashMap<u64, mpsc::Sender<Message>>>>,
 }
 
 impl SolanaWebSocketClient {
@@ -32,7 +29,7 @@ impl SolanaWebSocketClient {
         Self {
             url: url.to_string(),
             next_req_id: 1,
-            write_streams: HashMap::new(),
+            write_channel: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -72,14 +69,32 @@ impl WebSocketClient for SolanaWebSocketClient {
 
         let mut sub_id: Option<u64> = None;
 
+        let (write_tx, mut write_rx) = mpsc::channel::<Message>(3);
+
         if let Some(msg) = read_stream.next().await {
             if let Ok(tungstenite::Message::Text(txt)) = msg {
                 if let Ok(LogSubscribeWsMessage::Subscribed(resp)) =
                     serde_json::from_str::<LogSubscribeWsMessage>(&txt)
                 {
                     let subscription_id = resp.result;
-                    __self.write_streams.insert(subscription_id, write_stream);
+                    let write_tx_clone = write_tx.clone();
+
+                    self.write_channel
+                        .clone()
+                        .lock()
+                        .await
+                        .insert(subscription_id, write_tx_clone);
+
                     sub_id = Some(subscription_id);
+
+                    tokio::spawn(async move {
+                        while let Some(msg) = write_rx.recv().await {
+                            if let Err(e) = write_stream.send(msg).await {
+                                eprintln!("Write error: {:?}", e);
+                                break;
+                            }
+                        }
+                    });
                 }
             }
         }
@@ -146,6 +161,9 @@ impl WebSocketClient for SolanaWebSocketClient {
                         }
                     }
                 });
+
+                self.ping(sub_id).await;
+
                 Ok(sub_id)
             }
             None => Err("logsSubscribe subscription request failed".into()),
@@ -153,7 +171,7 @@ impl WebSocketClient for SolanaWebSocketClient {
     }
 
     async fn logs_unsubscribe(&mut self, sub_id: u64) -> WSCResult<()> {
-        if let Some(mut write_stream) = self.write_streams.remove(&sub_id) {
+        if let Some(write_tx) = self.write_channel.lock().await.remove(&sub_id) {
             let req_id = self.next_req_id;
             self.next_req_id += 1;
 
@@ -164,11 +182,32 @@ impl WebSocketClient for SolanaWebSocketClient {
                 "params": [sub_id],
             });
 
-            write_stream.send(Message::Text(req.to_string())).await?;
-
-            // this will close the read_stream as well
-            write_stream.send(Message::Close(None)).await?;
+            write_tx.send(Message::Text(req.to_string())).await?;
+            write_tx.send(Message::Close(None)).await?;
         }
         Ok(())
+    }
+}
+
+impl SolanaWebSocketClient {
+    async fn ping(&mut self, sub_id: u64) {
+        let write_channel_clone = self.write_channel.clone();
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_secs(20));
+            loop {
+                ticker.tick().await;
+
+                if let Some(write_tx) = write_channel_clone.lock().await.get(&sub_id) {
+                    if let Err(e) = write_tx.send(Message::Ping(vec![])).await {
+                        eprintln!("Ping error: {:?}", e);
+                        break;
+                    } else {
+                        println!("Ping sent");
+                    }
+                } else {
+                    break;
+                }
+            }
+        });
     }
 }
