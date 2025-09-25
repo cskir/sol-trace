@@ -128,7 +128,7 @@ async fn build_trades(
     store_tokens(
         &token_changes.keys().cloned().collect(),
         off_chain_rpc_client,
-        token_store,
+        token_store.clone(),
     )
     .await
     .ok();
@@ -138,6 +138,9 @@ async fn build_trades(
         if let Some(token_prices_map) = token_prices_map.as_ref() {
             if let Some(token_price) = token_prices_map.get(&mint) {
                 trade.usd_price = Some(token_price.usd_price);
+            }
+            if let Ok(token_info) = token_store.clone().read().await.get_token(&mint).await {
+                trade.symbol = Some(token_info.symbol.clone());
             }
         }
 
