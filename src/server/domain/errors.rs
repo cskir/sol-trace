@@ -1,9 +1,13 @@
+use thiserror::Error;
 use tonic::Status;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Error)]
 pub enum InputValidationError {
+    #[error("Invalid wallet address")]
     InvalidWalletAddress,
+    #[error("Missing tokens")]
     MissingTokens,
+    #[error("{0}")]
     InvalidTokenAddress(String),
 }
 

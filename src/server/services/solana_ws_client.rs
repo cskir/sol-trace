@@ -38,6 +38,7 @@ impl SolanaWebSocketClient {
 
 #[async_trait]
 impl WebSocketClient for SolanaWebSocketClient {
+    #[tracing::instrument(name = "Logs subscribe", skip_all)]
     async fn logs_subscribe(
         &mut self,
         subscription_input: Arc<SubscriptionInput>,
@@ -46,9 +47,8 @@ impl WebSocketClient for SolanaWebSocketClient {
         on_chain_rpc_client: OnChainRpcClientType,
         tx: mpsc::Sender<Result<SubscribeResponse, Status>>,
     ) -> WSCResult<u64> {
-        println!("wsc connect requested");
         let (ws_stream, _) = connect_async(&self.url).await?;
-        println!("wsc connected");
+        tracing::info!("WebSocket connected to {}", &self.url);
         let req_id = self.next_req_id;
         self.next_req_id += 1;
 
@@ -62,13 +62,9 @@ impl WebSocketClient for SolanaWebSocketClient {
                 ]
         });
 
-        println!("wsc logsSubscribe req: {}", req);
-
         let (mut write_stream, mut read_stream) = ws_stream.split();
 
         write_stream.send(Message::Text(req.to_string())).await?;
-
-        println!("wsc logsSubscribe sent");
 
         let mut sub_id: Option<u64> = None;
 
@@ -103,7 +99,6 @@ impl WebSocketClient for SolanaWebSocketClient {
 
         match sub_id {
             Some(sub_id) => {
-                println!("wsc sub_id {} ", sub_id);
                 tokio::spawn(async move {
                     while let Some(msg) = read_stream.next().await {
                         match msg {
@@ -158,7 +153,7 @@ impl WebSocketClient for SolanaWebSocketClient {
                             }
                             Ok(_) => {}
                             Err(e) => {
-                                eprintln!("WebSocket error {:?}", e);
+                                tracing::error!("WebSocket error {:?}", e);
                                 break;
                             }
                         }
@@ -169,10 +164,14 @@ impl WebSocketClient for SolanaWebSocketClient {
 
                 Ok(sub_id)
             }
-            None => Err("logsSubscribe subscription request failed".into()),
+            None => {
+                tracing::error!("logs subscription request failed");
+                Err("logsSubscribe subscription request failed".into())
+            }
         }
     }
 
+    #[tracing::instrument(name = "Logs unsubscribe", skip_all)]
     async fn logs_unsubscribe(&mut self, sub_id: u64) -> WSCResult<()> {
         if let Some(write_tx) = self.write_channel.lock().await.remove(&sub_id) {
             let req_id = self.next_req_id;
@@ -193,6 +192,7 @@ impl WebSocketClient for SolanaWebSocketClient {
 }
 
 impl SolanaWebSocketClient {
+    #[tracing::instrument(name = "Ping", skip_all)]
     async fn ping(&mut self, sub_id: u64) {
         let write_channel_clone = self.write_channel.clone();
         tokio::spawn(async move {
@@ -202,10 +202,10 @@ impl SolanaWebSocketClient {
 
                 if let Some(write_tx) = write_channel_clone.lock().await.get(&sub_id) {
                     if let Err(e) = write_tx.send(Message::Ping(vec![])).await {
-                        eprintln!("Ping error: {:?}", e);
+                        tracing::error!("Ping error: {:?}", e);
                         break;
                     } else {
-                        println!("Ping sent");
+                        //tracing::info!("Ping sent");
                     }
                 } else {
                     break;

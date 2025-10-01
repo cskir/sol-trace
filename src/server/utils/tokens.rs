@@ -3,6 +3,7 @@ use crate::server::{
     states::app_state::{OffChainRpcClientType, TokenStoreType},
 };
 
+#[tracing::instrument(name = "Store tokens", skip_all)]
 pub async fn store_tokens(
     token_mints: &Vec<String>,
     off_chain_rpc_client: OffChainRpcClientType,
@@ -19,14 +20,22 @@ pub async fn store_tokens(
     }
 
     if tokens_to_query.len() > 0 {
-        let tokens = off_chain_rpc_client
-            .get_tokens(tokens_to_query)
-            .await
-            .map_err(|e| TokenStoreError::TokenIsNotAvailable(e.to_string()))?;
-
-        for token in tokens.into_iter() {
-            token_store.add_token(token).await?;
+        match off_chain_rpc_client.get_tokens(tokens_to_query).await {
+            Err(e) => {
+                let error = TokenStoreError::TokenIsNotAvailable(e.to_string());
+                tracing::error!("Failed to fetch tokens: {}", error);
+                return Err(error);
+            }
+            Ok(tokens) => {
+                for token in tokens.into_iter() {
+                    if token_store.add_token(token.clone()).await.is_err() {
+                        tracing::error!("Failed to store token {}", token.id);
+                        return Err(TokenStoreError::UnexpectedError);
+                    }
+                }
+            }
         }
     }
+
     Ok(())
 }

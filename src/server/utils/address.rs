@@ -2,14 +2,23 @@ use std::error::Error;
 
 use spl_associated_token_account::get_associated_token_address;
 use spl_token::solana_program::pubkey::Pubkey;
+use tracing::error;
 
 use crate::{proto::InitRequest, server::domain::InputValidationError};
 
-pub fn validate_input(init_request: &InitRequest) -> Result<(), InputValidationError> {
-    validate_address(&init_request.wallet)
-        .map_err(|_| InputValidationError::InvalidWalletAddress)?;
+#[tracing::instrument(name = "Validate init request data", skip_all)]
+pub fn validate_init_data(init_request: &InitRequest) -> Result<(), InputValidationError> {
+    if validate_address(&init_request.wallet).is_err() {
+        error!(
+            "{}: {}",
+            InputValidationError::InvalidWalletAddress,
+            init_request.wallet
+        );
+        return Err(InputValidationError::InvalidWalletAddress);
+    }
 
     if init_request.tokens.len() == 0 {
+        error!("{}", InputValidationError::MissingTokens);
         return Err(InputValidationError::MissingTokens)?;
     }
 
@@ -23,11 +32,14 @@ pub fn validate_input(init_request: &InitRequest) -> Result<(), InputValidationE
     }
 
     if invalid_tokens.len() > 0 {
-        return Err(InputValidationError::InvalidTokenAddress(format!(
+        let err = InputValidationError::InvalidTokenAddress(format!(
             "Invalid token{} {}",
             if invalid_tokens.len() > 1 { "s:" } else { ":" },
             invalid_tokens.join(",")
-        )));
+        ));
+
+        error!("{}", err);
+        return Err(err);
     }
 
     Ok(())
@@ -65,7 +77,7 @@ mod tests {
             tokens: vec![TOKEN1.to_owned()],
         };
 
-        let result = validate_input(&init_request);
+        let result = validate_init_data(&init_request);
         assert!(result.is_ok());
     }
 
@@ -76,7 +88,7 @@ mod tests {
             tokens: vec![],
         };
 
-        let result = validate_input(&init_request);
+        let result = validate_init_data(&init_request);
         assert!(result.is_err());
 
         assert_eq!(
@@ -92,7 +104,7 @@ mod tests {
             tokens: vec![],
         };
 
-        let result = validate_input(&init_request);
+        let result = validate_init_data(&init_request);
         assert!(result.is_err());
 
         assert_eq!(InputValidationError::MissingTokens, result.unwrap_err())
@@ -105,7 +117,7 @@ mod tests {
             tokens: vec![INVALID_TOKEN1.to_string()],
         };
 
-        let result = validate_input(&init_request);
+        let result = validate_init_data(&init_request);
         assert!(result.is_err());
 
         assert_eq!(

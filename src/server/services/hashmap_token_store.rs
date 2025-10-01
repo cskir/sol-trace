@@ -9,18 +9,24 @@ pub struct HashmapTokenStore {
 
 #[async_trait::async_trait]
 impl TokenStore for HashmapTokenStore {
+    #[tracing::instrument(name = "Add token", skip_all)]
     async fn add_token(&mut self, token: TokenInfo) -> Result<(), TokenStoreError> {
         if self.tokens.contains_key(&token.id) {
+            tracing::error!("Token {} already exists", token.id);
             return Err(TokenStoreError::TokenAlreadyExists);
         }
         self.tokens.insert(token.id.clone(), token);
         Ok(())
     }
 
+    #[tracing::instrument(name = "Get token", skip_all)]
     async fn get_token(&self, address: &String) -> Result<TokenInfo, TokenStoreError> {
         match self.tokens.get(address) {
             Some(token) => Ok(token.clone()),
-            None => Err(TokenStoreError::TokenNotFound),
+            None => {
+                tracing::error!("Token not found");
+                Err(TokenStoreError::TokenNotFound)
+            }
         }
     }
 

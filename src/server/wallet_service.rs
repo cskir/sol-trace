@@ -4,7 +4,6 @@ use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::async_trait;
 use tonic::{Request, Response, Status, transport::Server};
-use tracing::error;
 use uuid::Uuid;
 
 use crate::proto::{
@@ -12,9 +11,8 @@ use crate::proto::{
     UnsubscribeRequest, UnsubscribeResponse,
     cli_service_server::{CliService, CliServiceServer},
 };
-use crate::server::domain::InputValidationError;
 use crate::server::states::{AppState, ClientState, SubscriptionState};
-use crate::server::utils::{store_tokens, validate_input};
+use crate::server::utils::{store_tokens, validate_init_data};
 
 pub struct WalletService {
     state: Arc<AppState>,
@@ -24,25 +22,20 @@ impl WalletService {
     pub fn new(state: Arc<AppState>) -> Self {
         Self { state }
     }
-
-    // pub fn log_err(res: Result<(), InputValidationError>) -> Result<(), InputValidationError> {
-    //     if let Err(e) = res {
-    //         error!("Input validation error: {}", e);
-    //     }
-    //     res
-    // }
 }
 
 #[async_trait]
 impl CliService for WalletService {
     type SubscribeStream = ReceiverStream<Result<SubscribeResponse, Status>>;
 
+    #[tracing::instrument(name = "Init", skip_all)]
     async fn init(&self, request: Request<InitRequest>) -> Result<Response<InitResponse>, Status> {
+        tracing::info!("New client request received");
         let new_id = Uuid::new_v4();
 
         let init_request = request.into_inner();
 
-        validate_input(&init_request)?;
+        validate_init_data(&init_request)?;
 
         store_tokens(
             &init_request.tokens,
@@ -56,20 +49,19 @@ impl CliService for WalletService {
             ClientState::build(init_request, self.state.ws_client_factory.clone()),
         );
 
-        println!("Registered new client with ID: {}", new_id);
+        tracing::info!("Registered new client with ID: {}", new_id);
 
         Ok(Response::new(InitResponse {
             client_id: new_id.to_string(),
         }))
     }
 
+    #[tracing::instrument(name = "Subscribe", skip_all)]
     async fn subscribe(
         &self,
         request: Request<SubscribeRequest>,
     ) -> Result<Response<<WalletService as CliService>::SubscribeStream>, Status> {
         let client_id = extract_client_id(&request)?;
-
-        println!("subscribe requested: {}", client_id);
 
         let (tx, rx) = mpsc::channel(10);
 
@@ -78,10 +70,11 @@ impl CliService for WalletService {
         match clients.get_mut(&client_id) {
             Some(client_state) => {
                 if client_state.logs_subscription.is_some() {
+                    tracing::warn!("Client {} already has an active subscription", client_id);
                     return Err(Status::failed_precondition("Subscription already exists"));
                 }
 
-                println!("call ws client subscribe: ");
+                tracing::info!("call logs subscribe for: {}", client_id);
 
                 if let Ok(subscription_id) = client_state
                     .ws_client
@@ -97,13 +90,11 @@ impl CliService for WalletService {
                     .await
                 {
                     client_state.logs_subscription = Some(SubscriptionState { subscription_id });
-                    println!(
-                        "wsc subscribed stored in client with id: {}",
-                        subscription_id
-                    );
+                    tracing::info!("Subscription was successful with id: {}", subscription_id);
                 }
             }
             None => {
+                tracing::warn!("Client {} not found", client_id);
                 return Err(Status::not_found("Client not found"));
             }
         }
@@ -111,13 +102,13 @@ impl CliService for WalletService {
         Ok(Response::new(ReceiverStream::new(rx)))
     }
 
+    #[tracing::instrument(name = "Unsubscribe", skip_all)]
     async fn unsubscribe(
         &self,
         request: Request<UnsubscribeRequest>,
     ) -> Result<Response<UnsubscribeResponse>, Status> {
         let client_id = extract_client_id(&request)?;
         //let state_clone = self.state.clone();
-        println!("unsubscribe requested: {}", client_id);
         let mut clients = self.state.clients.write().await;
 
         match clients.get_mut(&client_id) {
@@ -132,8 +123,10 @@ impl CliService for WalletService {
                 }
 
                 client_state.logs_subscription = None;
+                tracing::info!("Unsubscription was successful for client: {}", client_id);
             }
             None => {
+                tracing::warn!("Client {} not found", client_id);
                 return Err(Status::not_found("Client not found"));
             }
         }
@@ -163,6 +156,7 @@ fn extract_client_id<T>(req: &Request<T>) -> Result<Uuid, Status> {
 
 pub async fn run_server(addr: &str, state: AppState) -> Result<(), Box<dyn std::error::Error>> {
     let svc = WalletService::new(Arc::new(state));
+
     tracing::info!("Server listening on {}", addr);
 
     // INFO: adding TraceLayer gave trait bound error for the grpc stream sercvices

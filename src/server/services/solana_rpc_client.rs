@@ -20,6 +20,7 @@ impl SolanaRpcClient {
 
 #[async_trait]
 impl OnChainRpcClient for SolanaRpcClient {
+    #[tracing::instrument(name = "Get transaction", skip_all)]
     async fn get_transaction(
         &self,
         signature: String,

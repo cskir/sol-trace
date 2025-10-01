@@ -1,3 +1,4 @@
+use thiserror::Error;
 use tonic::{Code, Status};
 
 use crate::server::domain::TokenInfo;
@@ -9,11 +10,15 @@ pub trait TokenStore {
     async fn has_token(&self, id: &String) -> bool;
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum TokenStoreError {
+    #[error("Token not found")]
     TokenNotFound,
+    #[error("Token already exists")]
     TokenAlreadyExists,
+    #[error("Token is not available: {0}")]
     TokenIsNotAvailable(String),
+    #[error("Unexpected error")]
     UnexpectedError,
 }
 
