@@ -65,10 +65,60 @@ pub struct TokenBalance {
 
 #[derive(Debug, Deserialize)]
 pub struct UiTokenAmount {
-    #[serde(rename = "uiAmount")]
+    //#[serde(rename = "uiAmount")]
     // pub ui_amount: Option<f64>, //deprecatod
     // #[serde(rename = "uiAmountString")]
     // pub ui_amount_string: String,
     pub decimals: u8,
     pub amount: String,
+}
+
+impl UiTokenAmount {
+    pub fn to_f64(&self) -> f64 {
+        let raw: u64 = self.amount.parse().unwrap_or(0);
+        raw as f64 / 10f64.powi(self.decimals as i32)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum GetTokenAccountBalanceResponse {
+    Balance(TokenAccountBalanceResponse),
+    Error(ErrorResponse),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenAccountBalanceResponse {
+    pub result: Option<TokenAccountBalanceResult>,
+    pub id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TokenAccountBalanceResult {
+    pub context: Context,
+    pub value: UiTokenAmount,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Context {
+    pub slot: u64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+pub enum GetBalanceResponse {
+    Balance(BalanceResponse),
+    Error(ErrorResponse),
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BalanceResponse {
+    pub result: Option<BalanceResult>,
+    pub id: u64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BalanceResult {
+    pub context: Context,
+    pub value: u64,
 }

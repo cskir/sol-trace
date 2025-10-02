@@ -3,7 +3,10 @@ use std::{collections::HashMap, sync::Arc};
 use crate::server::{
     domain::{EncodedTransaction, SubscriptionInput, TokenTrade, TradeType, TransactionMeta},
     states::app_state::{OffChainRpcClientType, OnChainRpcClientType, TokenStoreType},
-    utils::{constants::WSOL, store_tokens},
+    utils::{
+        constants::{SOL_DENOM, WSOL},
+        store_tokens,
+    },
 };
 
 pub async fn handle_transaction(
@@ -42,11 +45,6 @@ pub async fn handle_transaction(
     Ok(None)
 }
 
-fn amount_to_f64(amount: &str, decimals: u8) -> f64 {
-    let raw: u64 = amount.parse().unwrap_or(0);
-    raw as f64 / 10f64.powi(decimals as i32)
-}
-
 fn wallet_is_the_fee_payer(wallet: &String, enc_transaction: &EncodedTransaction) -> bool {
     if let Some(fee_payer) = enc_transaction.message.account_keys.first() {
         wallet == fee_payer
@@ -59,12 +57,12 @@ fn calc_sol_change(transaction_meta: &TransactionMeta) -> f64 {
     // it is safe because here pre_balances and post_balances have element at index 0
     let pre_balance = transaction_meta.pre_balances.get(0).cloned().unwrap_or(0);
     let post_balance = transaction_meta.post_balances.get(0).cloned().unwrap_or(0);
-    (post_balance as f64 - pre_balance as f64) / 1_000_000_000.0
+    (post_balance as f64 - pre_balance as f64) / SOL_DENOM
 }
 
 fn calc_fee(transaction_meta: &TransactionMeta) -> f64 {
     let fee = transaction_meta.fee;
-    fee as f64 / 1_000_000_000.0
+    fee as f64 / SOL_DENOM
 }
 
 fn calc_token_changes_for_wallet(
@@ -81,24 +79,19 @@ fn calc_token_changes_for_wallet(
 
     for token_balance in &transaction_meta.pre_token_balances {
         if token_balance.owner.as_deref() == Some(wallet_str) {
-            let value = amount_to_f64(
-                &token_balance.ui_token_amount.amount,
-                token_balance.ui_token_amount.decimals,
+            token_changes.insert(
+                token_balance.mint.clone(),
+                -token_balance.ui_token_amount.to_f64(),
             );
-            token_changes.insert(token_balance.mint.clone(), -value);
         }
     }
 
     for token_balance in &transaction_meta.post_token_balances {
         if token_balance.owner.as_deref() == Some(wallet_str) {
-            let value = amount_to_f64(
-                &token_balance.ui_token_amount.amount,
-                token_balance.ui_token_amount.decimals,
-            );
             let entry = token_changes
                 .entry(token_balance.mint.clone())
                 .or_insert(0.0);
-            *entry += value;
+            *entry += token_balance.ui_token_amount.to_f64();
         }
     }
 

@@ -7,8 +7,9 @@ use sol_trace::{
     },
     server::{
         domain::{
-            OffChainRpcClient, OnChainRpcClient, SubscriptionInput, TokenInfo, TokenPrice,
-            TransactionResponse, WSCResult, WebSocketClient,
+            BalanceResponse, OffChainRpcClient, OnChainRpcClient, SubscriptionInput,
+            TokenAccountBalanceResponse, TokenInfo, TokenPrice, TransactionResponse, WSCResult,
+            WebSocketClient,
         },
         services::HashmapTokenStore,
         states::{
@@ -90,6 +91,26 @@ impl OnChainRpcClient for MockOnChainRpcClient {
         _signature: String,
     ) -> Result<TransactionResponse, Box<dyn std::error::Error + Send + Sync>> {
         Ok(TransactionResponse {
+            result: None,
+            id: 1,
+        })
+    }
+
+    async fn get_token_account_balance(
+        &self,
+        _signature: String,
+    ) -> Result<TokenAccountBalanceResponse, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(TokenAccountBalanceResponse {
+            result: None,
+            id: 1,
+        })
+    }
+
+    async fn get_balance(
+        &self,
+        _signature: String,
+    ) -> Result<BalanceResponse, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(BalanceResponse {
             result: None,
             id: 1,
         })

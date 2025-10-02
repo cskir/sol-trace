@@ -3,7 +3,7 @@ use crate::{
     server::{
         domain::{SubscriptionInput, WebSocketClient},
         states::SubscriptionState,
-        utils::{constants, gen_token_account},
+        utils::gen_token_account,
     },
 };
 use std::{
@@ -29,8 +29,7 @@ impl ClientState {
     ) -> Self {
         let ws_client = factory();
 
-        let mut tokens: HashSet<String> = request.tokens.into_iter().collect();
-        tokens.insert(constants::WSOL.to_string());
+        let tokens: HashSet<String> = request.tokens.into_iter().collect();
 
         // !! mutabale only here
         let mut token_account_map = HashMap::new();

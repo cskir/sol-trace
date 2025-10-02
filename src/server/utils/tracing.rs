@@ -3,12 +3,12 @@ use tracing_error::ErrorLayer;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{EnvFilter, fmt};
 
-/*pub fn init_tracing() {
-    tracing_subscriber::fmt()
-        .compact()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
-}*/
+// pub fn init_tracing() {
+//     tracing_subscriber::fmt()
+//         .compact()
+//         .with_max_level(tracing::Level::TRACE)
+//         .init();
+// }
 
 pub fn init_tracing() -> Result<()> {
     // Create a formatting layer for tracing output with a compact format

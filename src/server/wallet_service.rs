@@ -11,8 +11,10 @@ use crate::proto::{
     UnsubscribeRequest, UnsubscribeResponse,
     cli_service_server::{CliService, CliServiceServer},
 };
+use crate::proto::{HoldingsRequest, HoldingsResponse};
 use crate::server::states::{AppState, ClientState, SubscriptionState};
-use crate::server::utils::{store_tokens, validate_init_data};
+use crate::server::utils::constants::WSOL;
+use crate::server::utils::{query_holdings, store_tokens, validate_init_data};
 
 pub struct WalletService {
     state: Arc<AppState>,
@@ -33,7 +35,11 @@ impl CliService for WalletService {
         tracing::info!("New client request received");
         let new_id = Uuid::new_v4();
 
-        let init_request = request.into_inner();
+        let mut init_request = request.into_inner();
+
+        if !init_request.tokens.contains(&WSOL.to_string()) {
+            init_request.tokens.push(WSOL.to_string());
+        }
 
         validate_init_data(&init_request)?;
 
@@ -134,6 +140,39 @@ impl CliService for WalletService {
         Ok(Response::new(UnsubscribeResponse {
             message: "Unsubscribed successfully".to_string(),
         }))
+    }
+
+    #[tracing::instrument(name = "Holdings", skip_all)]
+    async fn holdings(
+        &self,
+        request: Request<HoldingsRequest>,
+    ) -> Result<Response<HoldingsResponse>, Status> {
+        let client_id = extract_client_id(&request)?;
+
+        let clients = self.state.clients.read().await;
+
+        match clients.get(&client_id) {
+            Some(client_state) => {
+                let holdings_response = query_holdings(
+                    &client_state.subscription_input.wallet,
+                    client_state.token_account_map.clone(),
+                    self.state.token_store.clone(),
+                    self.state.on_chain_rpc_client.clone(),
+                    self.state.off_chain_rpc_client.clone(),
+                )
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to query holdings: {}", e);
+                    Status::internal("Failed to query holdings")
+                })?;
+
+                Ok(Response::new(holdings_response))
+            }
+            None => {
+                tracing::warn!("Client {} not found", client_id);
+                Err(Status::not_found("Client not found"))
+            }
+        }
     }
 
     async fn call(&self, request: Request<CallRequest>) -> Result<Response<CallResponse>, Status> {

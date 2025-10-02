@@ -25,6 +25,7 @@ impl JupiterRpcClient {
 #[async_trait]
 impl OffChainRpcClient for JupiterRpcClient {
     //TODO: improve to handle the api token's limit (100) for one rq with using chunks
+    #[tracing::instrument(name = "Get tokens", skip_all, fields(tokens))]
     async fn get_tokens(
         &self,
         tokens: Vec<String>,
@@ -37,9 +38,10 @@ impl OffChainRpcClient for JupiterRpcClient {
             .await?
             .json::<Vec<TokenInfo>>()
             .await?;
+        tracing::info!("Fetched tokens: {:?}", tokens);
         Ok(tokens)
     }
-
+    #[tracing::instrument(name = "Get prices" skip_all, fields(tokens))]
     async fn get_prices(
         &self,
         tokens: Vec<String>,
@@ -52,6 +54,7 @@ impl OffChainRpcClient for JupiterRpcClient {
             .await?
             .json::<HashMap<String, TokenPrice>>()
             .await?;
+        tracing::info!("Fetched prices: {:?}", prices);
         Ok(prices)
     }
 }

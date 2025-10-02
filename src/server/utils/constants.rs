@@ -1,5 +1,6 @@
 pub const WS_URL: &str = "wss://api.mainnet-beta.solana.com/";
 pub const WSOL: &str = "So11111111111111111111111111111111111111112";
+pub const SOL_DENOM: f64 = 1_000_000_000.0; // lamports in 1 SOL
 
 pub mod test {
 

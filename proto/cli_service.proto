@@ -6,7 +6,8 @@ service CliService {
   rpc Init(InitRequest) returns (InitResponse);
   rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
   rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
-  rpc Call(CallRequest) returns (CallResponse);
+  rpc Holdings(HoldingsRequest) returns (HoldingsResponse);
+  rpc Call(CallRequest) returns (CallResponse); 
 }
 
 message InitRequest {
@@ -30,6 +31,22 @@ message UnsubscribeRequest {
 
 message UnsubscribeResponse {
   string message = 1;
+}
+
+message HoldingsRequest {
+}
+
+message Holding {
+  string name = 1;
+  string symbol = 2;
+  string address = 3;
+  string balance = 4;
+  optional double usd_price = 5;
+  optional double usd_value = 6;
+}
+
+message HoldingsResponse {
+  repeated Holding holdings = 1;
 }
 
 message CallRequest {

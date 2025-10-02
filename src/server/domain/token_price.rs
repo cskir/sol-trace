@@ -8,5 +8,5 @@ pub struct TokenPrice {
     pub block_id: u64,
     pub decimals: u8,
     #[serde(rename = "priceChange24h")]
-    pub price_change_24h: f64,
+    pub price_change_24h: Option<f64>,
 }

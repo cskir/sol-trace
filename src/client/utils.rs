@@ -1,7 +1,8 @@
 use crate::{
     client::Config,
     proto::{
-        InitRequest, SubscribeRequest, UnsubscribeRequest, cli_service_client::CliServiceClient,
+        HoldingsRequest, InitRequest, SubscribeRequest, UnsubscribeRequest,
+        cli_service_client::CliServiceClient,
     },
 };
 use clap::Parser;
@@ -21,6 +22,7 @@ use crossterm::{
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
+use num_format::{Locale, ToFormattedString};
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -157,6 +159,7 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
         })?;
 
         let tx_stream = tx.clone();
+        let tx_res = tx.clone();
         tokio::select! {
             Some(ev) = rx.recv() => {
                 match ev {
@@ -215,7 +218,6 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                                         }
                                     });
                                 }
-
                             } "unsub" => {
                                 let _ = tx_log.send(ClientEvent::Log("Unsubscribing...".to_string())).await;
                                 let mut client_clone = client.clone();
@@ -237,8 +239,44 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                                     tx_log.send(ClientEvent::Log("No active subscription to unsubscribe.".to_string())).await?;
                                 }
                             }
+                            "hold" => {
+                                let _ = tx_log.send(ClientEvent::Log("Holdings request has been sent".to_string())).await;
+                                let mut client_clone = client.clone();
+
+                                let mut holdings_request = Request::new(HoldingsRequest {});
+                                holdings_request.metadata_mut().insert(
+                                    "client-id",
+                                    MetadataValue::try_from(client_id.clone().to_string())?,
+                                );
+
+                                match client_clone.holdings(holdings_request).await {
+                                    Ok(resp ) => {
+                                        let balances :Vec<String> = resp.into_inner().holdings.into_iter().map(|h| {
+                                            let price_str = if let Some(price) = h.usd_price {
+                                                fmt_usd(price)
+                                            } else {
+                                                "N/A".to_string()
+                                            };
+                                            let value_str = if let Some(value) = h.usd_value {
+                                                fmt_usd(value)
+                                            } else {
+                                                "N/A".to_string()
+                                            };
+                                            format!("{} ({}) - Balance: {}, Price: {}, Value: {}", h.name, h.symbol, h.balance, price_str, value_str)
+                                        }).collect();
+                                        let balance_msg = if balances.is_empty() {
+                                            "No holdings found.".to_string()
+                                        } else {
+                                            format!("Holdings:\n{}", balances.join("\n"))
+                                        };
+                                        tx_res.send(ClientEvent::Log(balance_msg)).await?
+                                    },
+                                    Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
+                                }
+
+                            }
                             _ => {
-                                let _ = tx_log.send(ClientEvent::Log("Unknown command. Use: sub | unsub | call <msg> | quit".to_string())).await;
+                                let _ = tx_log.send(ClientEvent::Log("Unknown command. Use: sub | unsub | hold | exit | quit".to_string())).await;
                             }
                         }
 
@@ -256,4 +294,17 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
     terminal.show_cursor().ok();
 
     Ok(())
+}
+
+fn fmt_usd(value: f64) -> String {
+    let rounded = (value * 100.0).round() / 100.0;
+
+    let int_part = rounded.trunc() as u64;
+    let frac_part = ((rounded.fract() * 100.0).round()) as u64;
+
+    format!(
+        "${}.{:02}",
+        int_part.to_formatted_string(&Locale::en),
+        frac_part
+    )
 }

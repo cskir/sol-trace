@@ -46,6 +46,7 @@ tracing-error = "0.2.0"
 crossterm = "0.27"
 ratatui = "0.26"
 rustyline = "10"
+num-format = "0.4"
 
 [build-dependencies]
 tonic-build = "0.10.2"

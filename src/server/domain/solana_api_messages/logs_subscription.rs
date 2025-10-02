@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::server::domain::ErrorResponse;
+use crate::server::domain::{Context, ErrorResponse};
 
 #[derive(Debug, Deserialize)]
 #[serde(untagged)]
@@ -33,11 +33,6 @@ pub struct LogsParams {
 pub struct LogsResult {
     pub context: Context,
     pub value: LogsValue,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Context {
-    pub slot: u64,
 }
 
 #[derive(Debug, Deserialize)]
