@@ -11,10 +11,10 @@ use crate::proto::{
     UnsubscribeRequest, UnsubscribeResponse,
     cli_service_server::{CliService, CliServiceServer},
 };
-use crate::proto::{HoldingsRequest, HoldingsResponse};
+use crate::proto::{GetTradeRequest, GetTradeResponse, HoldingsRequest, HoldingsResponse};
 use crate::server::states::{AppState, ClientState, SubscriptionState};
 use crate::server::utils::constants::WSOL;
-use crate::server::utils::{query_holdings, store_tokens, validate_init_data};
+use crate::server::utils::{handle_transaction, query_holdings, store_tokens, validate_init_data};
 
 pub struct WalletService {
     state: Arc<AppState>,
@@ -167,6 +167,38 @@ impl CliService for WalletService {
                 })?;
 
                 Ok(Response::new(holdings_response))
+            }
+            None => {
+                tracing::warn!("Client {} not found", client_id);
+                Err(Status::not_found("Client not found"))
+            }
+        }
+    }
+
+    #[tracing::instrument(name = "Get Transaction", skip_all)]
+    async fn get_trade(
+        &self,
+        request: Request<GetTradeRequest>,
+    ) -> Result<Response<GetTradeResponse>, Status> {
+        let client_id = extract_client_id(&request)?;
+
+        let get_tx_request = request.into_inner();
+        let clients = self.state.clients.read().await;
+
+        match clients.get(&client_id) {
+            Some(client_state) => {
+                let trade = handle_transaction(
+                    get_tx_request.signature,
+                    client_state.subscription_input.clone(),
+                    self.state.off_chain_rpc_client.clone(),
+                    self.state.token_store.clone(),
+                    self.state.on_chain_rpc_client.clone(),
+                )
+                .await
+                .ok()
+                .flatten();
+
+                Ok(Response::new(GetTradeResponse { trade }))
             }
             None => {
                 tracing::warn!("Client {} not found", client_id);

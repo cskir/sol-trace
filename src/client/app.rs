@@ -1,7 +1,7 @@
 use crate::{
-    client::{AppState, Config, Panel, SharedState, fmt_usd, scroll_down, scroll_up, ui},
+    client::{AppState, Config, Panel, SharedState, scroll_down, scroll_up, ui},
     proto::{
-        HoldingsRequest, InitRequest, SubscribeRequest, UnsubscribeRequest,
+        GetTradeRequest, HoldingsRequest, InitRequest, SubscribeRequest, UnsubscribeRequest,
         cli_service_client::CliServiceClient,
     },
 };
@@ -159,111 +159,126 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                     ClientEvent::ReplInput(line) => {
                         state.history_list.push(line.clone());
                         let tx_log = tx.clone();
-                        match line.as_str() {
-                            "exit" | "quit" => {
-                                let _ = tx_log.send(ClientEvent::Log("Exiting...".to_string())).await;
-                                break;
-                            }
-                            "sub" => {
-                                if shared_state.lock().await.current_cancel.is_some() {
-                                    let _ = tx_log.send(ClientEvent::Log("Already subscribed. Please unsubscribe first.".to_string())).await;
-                                } else {
-                                    let cancel = CancellationToken::new();
-                                    {
-                                        let mut s = shared_state.lock().await;
-                                        s.current_cancel = Some(cancel.clone());
-                                    }
+                        const TX_PREFIX: &str = "tx ";
+                        if line.as_str().starts_with(TX_PREFIX) {
+                            let signature = &line.as_str()[TX_PREFIX.len()..];
+                            let mut client_clone = client.clone();
 
-                                    let _ = tx_log.send(ClientEvent::Log("Subscription request has been sent".to_string())).await;
-                                    let mut subscribe_request = Request::new(SubscribeRequest {});
-                                    subscribe_request.metadata_mut().insert(
-                                        "client-id",
-                                        MetadataValue::try_from(client_id.clone().to_string())?,
-                                    );
+                            let mut get_tx_request = Request::new(GetTradeRequest {signature: signature.to_string()});
+                            get_tx_request.metadata_mut().insert(
+                                "client-id",
+                                MetadataValue::try_from(client_id.clone().to_string())?,
+                            );
 
-                                    //note: grpc stream will close if all the sender (mpsc-tx in the server) dropped
-                                    let mut stream = client.subscribe(subscribe_request).await?.into_inner();
-
-                                    task::spawn(async move {
-                                        loop {
-                                            tokio::select! {
-                                                _ = cancel.cancelled() => {
-                                                    tx_log.send(ClientEvent::Log("Subscription stopped by user".to_string())).await.unwrap();
-                                                    break;
+                            match client_clone.get_trade(get_tx_request).await {
+                                Ok(resp ) => {
+                                    match resp.into_inner().trade {
+                                        Some(trade) => {
+                                            for item in trade.to_string_lines().into_iter() {
+                                                    state.history_list.push(item);
                                                 }
-                                                _ = sleep(Duration::from_millis(500)) => {
-                                                    while let Ok(Some(item)) = stream.message().await {
-                                                        tx_stream.send(ClientEvent::SubscriptionMsg(item.message)).await.unwrap();
-                                                }
-                                                }
-                                            }
                                         }
-                                    });
-                                }
-                            } "unsub" => {
-                                let _ = tx_log.send(ClientEvent::Log("Unsubscribing...".to_string())).await;
-                                let mut client_clone = client.clone();
-                                let mut s = shared_state.lock().await;
-                                if let Some(cancel) = s.current_cancel.take() {
-                                    let mut unsub_request = Request::new(UnsubscribeRequest {});
-                                    unsub_request.metadata_mut().insert(
-                                        "client-id",
-                                        MetadataValue::try_from(client_id.clone().to_string())?,
-                                    );
-
-                                    match client_clone.unsubscribe(unsub_request).await {
-                                        Ok(resp) => tx_log.send(ClientEvent::Log(resp.into_inner().message)).await?,
-                                        Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
+                                        None => state.history_list.push("No trade detected.".to_string())
                                     }
-
-                                    cancel.cancel();
-                                } else {
-                                    tx_log.send(ClientEvent::Log("No active subscription to unsubscribe.".to_string())).await?;
-                                }
-                            }
-                            "hold" => {
-                                let _ = tx_log.send(ClientEvent::Log("Holdings request has been sent".to_string())).await;
-                                let mut client_clone = client.clone();
-
-                                let mut holdings_request = Request::new(HoldingsRequest {});
-                                holdings_request.metadata_mut().insert(
-                                    "client-id",
-                                    MetadataValue::try_from(client_id.clone().to_string())?,
-                                );
-
-                                match client_clone.holdings(holdings_request).await {
-                                    Ok(resp ) => {
-                                        let balances :Vec<String> = resp.into_inner().holdings.into_iter().map(|h| {
-                                            let price_str = if let Some(price) = h.usd_price {
-                                                fmt_usd(price)
-                                            } else {
-                                                "N/A".to_string()
-                                            };
-                                            let value_str = if let Some(value) = h.usd_value {
-                                                fmt_usd(value)
-                                            } else {
-                                                "N/A".to_string()
-                                            };
-                                            format!("{} ({}) - Balance: {}, Price: {}, Value: {}", h.name, h.symbol, h.balance, price_str, value_str)
-                                        }).collect();
-                                        if balances.is_empty() {
-                                            state.history_list.push("No holdings found.".to_string());
-                                        } else {
-                                            state.history_list.push("Holdings:".to_string());
-                                            for item in balances.into_iter() {
-                                                state.history_list.push(item);
-                                            }
-                                        };
-                                    },
-                                    Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
-                                }
-
-                            }
-                            _ => {
-                                let _ = tx_log.send(ClientEvent::Log("Unknown command. Use: sub | unsub | hold | exit | quit".to_string())).await;
+                                },
+                                Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
                             }
                         }
+                        else {
+                            match line.as_str() {
+                                "exit" | "quit" => {
+                                    let _ = tx_log.send(ClientEvent::Log("Exiting...".to_string())).await;
+                                    break;
+                                }
+                                "sub" => {
+                                    if shared_state.lock().await.current_cancel.is_some() {
+                                        let _ = tx_log.send(ClientEvent::Log("Already subscribed. Please unsubscribe first.".to_string())).await;
+                                    } else {
+                                        let cancel = CancellationToken::new();
+                                        {
+                                            let mut s = shared_state.lock().await;
+                                            s.current_cancel = Some(cancel.clone());
+                                        }
 
+                                        let _ = tx_log.send(ClientEvent::Log("Subscription request has been sent".to_string())).await;
+                                        let mut subscribe_request = Request::new(SubscribeRequest {});
+                                        subscribe_request.metadata_mut().insert(
+                                            "client-id",
+                                            MetadataValue::try_from(client_id.clone().to_string())?,
+                                        );
+
+                                        //note: grpc stream will close if all the sender (mpsc-tx in the server) dropped
+                                        let mut stream = client.subscribe(subscribe_request).await?.into_inner();
+
+                                        task::spawn(async move {
+                                            loop {
+                                                tokio::select! {
+                                                    _ = cancel.cancelled() => {
+                                                        tx_log.send(ClientEvent::Log("Subscription stopped by user".to_string())).await.unwrap();
+                                                        break;
+                                                    }
+                                                    _ = sleep(Duration::from_millis(500)) => {
+                                                        while let Ok(Some(item)) = stream.message().await {
+                                                            tx_stream.send(ClientEvent::SubscriptionMsg(item.message)).await.unwrap();
+                                                    }
+                                                    }
+                                                }
+                                            }
+                                        });
+                                    }
+                                } "unsub" => {
+                                    let _ = tx_log.send(ClientEvent::Log("Unsubscribing...".to_string())).await;
+                                    let mut client_clone = client.clone();
+                                    let mut s = shared_state.lock().await;
+                                    if let Some(cancel) = s.current_cancel.take() {
+                                        let mut unsub_request = Request::new(UnsubscribeRequest {});
+                                        unsub_request.metadata_mut().insert(
+                                            "client-id",
+                                            MetadataValue::try_from(client_id.clone().to_string())?,
+                                        );
+
+                                        match client_clone.unsubscribe(unsub_request).await {
+                                            Ok(resp) => tx_log.send(ClientEvent::Log(resp.into_inner().message)).await?,
+                                            Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
+                                        }
+
+                                        cancel.cancel();
+                                    } else {
+                                        tx_log.send(ClientEvent::Log("No active subscription to unsubscribe.".to_string())).await?;
+                                    }
+                                }
+                                "hold" => {
+                                    let _ = tx_log.send(ClientEvent::Log("Holdings request has been sent".to_string())).await;
+                                    let mut client_clone = client.clone();
+
+                                    let mut holdings_request = Request::new(HoldingsRequest {});
+                                    holdings_request.metadata_mut().insert(
+                                        "client-id",
+                                        MetadataValue::try_from(client_id.clone().to_string())?,
+                                    );
+
+                                    match client_clone.holdings(holdings_request).await {
+                                        Ok(resp ) => {
+                                            let balances :Vec<String> = resp.into_inner().holdings.into_iter().map(|h| {
+                                                h.to_string()
+                                            }).collect();
+                                            if balances.is_empty() {
+                                                state.history_list.push("No holdings found.".to_string());
+                                            } else {
+                                                state.history_list.push("Holdings:".to_string());
+                                                for item in balances.into_iter() {
+                                                    state.history_list.push(item);
+                                                }
+                                            };
+                                        },
+                                        Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
+                                    }
+                                }
+                                _ => {
+                                    let _ = tx_log.send(ClientEvent::Log("Unknown command. Use: sub | unsub | hold | exit | quit".to_string())).await;
+                                }
+                            }
+                        }
                     },
                     ClientEvent::SubscriptionMsg(msg) => state.stream_list.push(msg),
                     ClientEvent::Log(msg) => state.logs.push(msg),

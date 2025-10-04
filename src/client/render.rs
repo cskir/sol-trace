@@ -21,7 +21,7 @@ fn render_panel<'a>(
         Block::default()
             .title(title)
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::LightYellow))
+            .border_style(Style::default().fg(Color::Cyan))
     } else {
         Block::default().title(title).borders(Borders::ALL)
     };

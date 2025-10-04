@@ -7,6 +7,7 @@ service CliService {
   rpc Subscribe(SubscribeRequest) returns (stream SubscribeResponse);
   rpc Unsubscribe(UnsubscribeRequest) returns (UnsubscribeResponse);
   rpc Holdings(HoldingsRequest) returns (HoldingsResponse);
+  rpc GetTrade(GetTradeRequest) returns (GetTradeResponse);
   rpc Call(CallRequest) returns (CallResponse); 
 }
 
@@ -47,6 +48,27 @@ message Holding {
 
 message HoldingsResponse {
   repeated Holding holdings = 1;
+}
+
+message GetTradeRequest {
+  string signature = 1;
+}
+
+message Transfer {
+    string mint= 1;
+    optional string symbol = 2;
+    optional string name = 3;
+    double amount = 4;
+    optional double usd_price = 5;
+}
+
+message Trade {
+    repeated Transfer from = 1;
+    repeated Transfer to = 2;
+}
+
+message GetTradeResponse {
+  Trade trade = 1;
 }
 
 message CallRequest {

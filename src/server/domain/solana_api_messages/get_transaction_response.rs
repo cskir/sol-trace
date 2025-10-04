@@ -17,11 +17,12 @@ pub struct TransactionResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct TransactionResult {
+    #[serde(rename = "blockTime")]
     pub block_time: u64,
-    pub slot: u64,
-    pub version: String,
-    pub transaction: EncodedTransaction,
     pub meta: Option<TransactionMeta>,
+    pub slot: u64,
+    //pub version: String,
+    pub transaction: EncodedTransaction,
 }
 
 #[derive(Debug, Deserialize)]

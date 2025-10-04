@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use reqwest::Client;
+use serde_json::Deserializer;
+use serde_path_to_error::deserialize;
 
 use crate::server::domain::{
     BalanceResponse, GetBalanceResponse, GetTokenAccountBalanceResponse, GetTransactionResponse,
@@ -13,7 +15,8 @@ pub struct SolanaRpcClient {
 
 impl SolanaRpcClient {
     pub fn build(client: Client) -> Self {
-        let base_url = "https://api.mainnet-beta.solana.com/";
+        //let base_url = "https://api.mainnet-beta.solana.com/";
+        let base_url = "https://soft-fragrant-snowflake.solana-mainnet.quiknode.pro/b62dc237d883e9d5d9b84a3b784c7f8d65f28c87/";
         Self {
             solana_url: base_url.to_owned(),
             client,
@@ -45,16 +48,38 @@ impl OnChainRpcClient for SolanaRpcClient {
             .send()
             .await?;
 
-        if response.status().is_success() {
-            match response.json::<GetTransactionResponse>().await? {
-                GetTransactionResponse::Transaction(resp) => Ok(resp),
-                GetTransactionResponse::Error(resp) => {
-                    Err(format!("Transaction not found. Error: {}", resp.error.message).into())
-                }
+        let text = response.text().await?;
+        //tracing::info!("raw response: {}", text);
+
+        //let parsed: Result<GetTransactionResponse, serde_json::Error> = serde_json::from_str(&text);
+
+        let mut deserializer = Deserializer::from_str(&text);
+        let parsed: Result<GetTransactionResponse, _> = deserialize(&mut deserializer);
+
+        match parsed {
+            Ok(GetTransactionResponse::Transaction(resp)) => Ok(resp),
+            Ok(GetTransactionResponse::Error(resp)) => {
+                Err(format!("Transaction not found. Error: {}", resp.error.message).into())
             }
-        } else {
-            Err(format!("Request failed with status: {}", response.status()).into())
+            Err(err) => {
+                tracing::error!("serde parse error at path {}: {}", err.path(), err);
+                Err("parse error".into())
+            }
         }
+
+        // if response.status().is_success() {
+        //     match response.json::<GetTransactionResponse>().await? {
+        //         GetTransactionResponse::Transaction(resp) => {
+        //             tracing::info!("get tx: {:?}", resp);
+        //             Ok(resp)
+        //         }
+        //         GetTransactionResponse::Error(resp) => {
+        //             Err(format!("Transaction not found. Error: {}", resp.error.message).into())
+        //         }
+        //     }
+        // } else {
+        //     Err(format!("Request failed with status: {}", response.status()).into())
+        // }
     }
 
     #[tracing::instrument(name = "Get token balance", skip_all)]

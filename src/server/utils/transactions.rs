@@ -1,21 +1,25 @@
 use std::{collections::HashMap, sync::Arc};
 
-use crate::server::{
-    domain::{EncodedTransaction, SubscriptionInput, TokenTrade, TradeType, TransactionMeta},
-    states::app_state::{OffChainRpcClientType, OnChainRpcClientType, TokenStoreType},
-    utils::{
-        constants::{SOL_DENOM, WSOL},
-        store_tokens,
+use crate::{
+    proto::{Trade, Transfer},
+    server::{
+        domain::{EncodedTransaction, SubscriptionInput, TransactionMeta},
+        states::app_state::{OffChainRpcClientType, OnChainRpcClientType, TokenStoreType},
+        utils::{
+            constants::{SOL_DENOM, WSOL},
+            store_tokens,
+        },
     },
 };
 
+#[tracing::instrument(name = "Handle transaction", skip_all)]
 pub async fn handle_transaction(
     signature: String,
     subscription_input: Arc<SubscriptionInput>,
     off_chain_rpc_client: OffChainRpcClientType,
     token_store: TokenStoreType,
     on_chain_rpc_client: OnChainRpcClientType,
-) -> Result<Option<TradeType>, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<Option<Trade>, Box<dyn std::error::Error + Send + Sync>> {
     let transaction = on_chain_rpc_client.get_transaction(signature).await?;
 
     if let Some(encoded_transaction) = transaction.result.as_ref().map(|res| &res.transaction) {
@@ -99,14 +103,15 @@ fn calc_token_changes_for_wallet(
     token_changes
 }
 
+#[tracing::instrument(name = "Build trades", skip_all)]
 async fn build_trades(
     transaction_meta: &TransactionMeta,
     subscription_input: &SubscriptionInput,
     off_chain_rpc_client: OffChainRpcClientType,
     token_store: TokenStoreType,
-) -> Option<TradeType> {
-    let mut sells: Vec<TokenTrade> = vec![];
-    let mut buys: Vec<TokenTrade> = vec![];
+) -> Option<Trade> {
+    let mut sells: Vec<Transfer> = vec![];
+    let mut buys: Vec<Transfer> = vec![];
 
     let token_changes = calc_token_changes_for_wallet(transaction_meta, subscription_input);
     if token_changes.is_empty() {
@@ -127,43 +132,30 @@ async fn build_trades(
     .ok();
 
     for (mint, amount) in token_changes.into_iter() {
-        let mut trade = TokenTrade::new(mint.clone(), amount.abs());
+        let mut transfer = Transfer::new(mint.clone(), amount.abs());
         if let Some(token_prices_map) = token_prices_map.as_ref() {
             if let Some(token_price) = token_prices_map.get(&mint) {
-                trade.usd_price = Some(token_price.usd_price);
+                transfer.usd_price = Some(token_price.usd_price);
             }
             if let Ok(token_info) = token_store.clone().read().await.get_token(&mint).await {
-                trade.symbol = Some(token_info.symbol.clone());
+                transfer.symbol = Some(token_info.symbol.clone());
+                transfer.name = Some(token_info.name.clone());
             }
         }
 
         if amount < 0.0 {
-            sells.push(trade);
+            sells.push(transfer);
         } else if amount > 0.0 {
-            buys.push(trade);
+            buys.push(transfer);
         }
     }
 
-    if sells.len() > 1 && buys.len() > 1 {
-        return Some(TradeType::MultiSwap {
-            from: sells,
-            to: buys,
-        });
-    } else if sells.len() > 1 && buys.len() == 1 {
-        return Some(TradeType::MultiSell {
-            from: sells,
-            to: buys.remove(0),
-        });
-    } else if sells.len() == 1 && buys.len() > 1 {
-        return Some(TradeType::MultiBuy {
-            from: sells.remove(0),
-            to: buys,
-        });
-    } else if sells.len() == 1 && buys.len() == 1 {
-        return Some(TradeType::SingleSwap {
-            from: sells.remove(0),
-            to: buys.remove(0),
-        });
+    if sells.len() == 0 || buys.len() == 0 {
+        return None;
     }
-    None
+
+    Some(Trade {
+        from: sells,
+        to: buys,
+    })
 }
