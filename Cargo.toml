@@ -48,6 +48,8 @@ ratatui = "0.26"
 rustyline = "10"
 num-format = "0.4"
 serde_path_to_error = "0.1"
+dotenvy = "0.15.7"
+lazy_static = "1.4.0"
 
 [build-dependencies]
 tonic-build = "0.10.2"

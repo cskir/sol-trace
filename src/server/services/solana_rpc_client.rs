@@ -3,9 +3,12 @@ use reqwest::Client;
 use serde_json::Deserializer;
 use serde_path_to_error::deserialize;
 
-use crate::server::domain::{
-    BalanceResponse, GetBalanceResponse, GetTokenAccountBalanceResponse, GetTransactionResponse,
-    OnChainRpcClient, TokenAccountBalanceResponse, TransactionResponse,
+use crate::server::{
+    domain::{
+        BalanceResponse, GetBalanceResponse, GetTokenAccountBalanceResponse,
+        GetTransactionResponse, OnChainRpcClient, TokenAccountBalanceResponse, TransactionResponse,
+    },
+    utils::constants::SOLANA_RPC_URL,
 };
 
 pub struct SolanaRpcClient {
@@ -15,10 +18,8 @@ pub struct SolanaRpcClient {
 
 impl SolanaRpcClient {
     pub fn build(client: Client) -> Self {
-        //let base_url = "https://api.mainnet-beta.solana.com/";
-        let base_url = "https://soft-fragrant-snowflake.solana-mainnet.quiknode.pro/b62dc237d883e9d5d9b84a3b784c7f8d65f28c87/";
         Self {
-            solana_url: base_url.to_owned(),
+            solana_url: SOLANA_RPC_URL.clone(),
             client,
         }
     }

@@ -125,7 +125,7 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                         state.focused = match state.focused {
                             Panel::Stream => Panel::History,
                             Panel::History => Panel::Log,
-                            Panel::Log => Panel::Repl,
+                            Panel::Log => Panel::Stream,
                             Panel::Repl => Panel::Stream,
                         };
                     },
@@ -157,10 +157,11 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                         state.repl.clear();
                     },
                     ClientEvent::ReplInput(line) => {
-                        state.history_list.push(line.clone());
+                        //state.history_list.push(line.clone());
                         let tx_log = tx.clone();
                         const TX_PREFIX: &str = "tx ";
                         if line.as_str().starts_with(TX_PREFIX) {
+                            let _ = tx_log.send(ClientEvent::Log("Tx request has been sent".to_string())).await;
                             let signature = &line.as_str()[TX_PREFIX.len()..];
                             let mut client_clone = client.clone();
 
@@ -174,12 +175,14 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                                 Ok(resp ) => {
                                     match resp.into_inner().trade {
                                         Some(trade) => {
+                                            state.history_list.push(format!("*Check tx: {}", signature));
                                             for item in trade.to_string_lines().into_iter() {
                                                     state.history_list.push(item);
                                                 }
                                         }
-                                        None => state.history_list.push("No trade detected.".to_string())
+                                        None => state.history_list.push("*No trade detected.".to_string())
                                     }
+                                    state.history_list.push("".to_string());
                                 },
                                 Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
                             }
@@ -263,13 +266,14 @@ pub async fn run_cli_client(cli: CliArgs) -> Result<(), Box<dyn std::error::Erro
                                                 h.to_string()
                                             }).collect();
                                             if balances.is_empty() {
-                                                state.history_list.push("No holdings found.".to_string());
+                                                state.history_list.push("*No holdings found.".to_string());
                                             } else {
-                                                state.history_list.push("Holdings:".to_string());
+                                                state.history_list.push("*Holdings:".to_string());
                                                 for item in balances.into_iter() {
                                                     state.history_list.push(item);
                                                 }
                                             };
+                                            state.history_list.push("".to_string());
                                         },
                                         Err(e) => tx_log.send(ClientEvent::Log(format!("Error: {e}"))).await?,
                                     }

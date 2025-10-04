@@ -121,8 +121,10 @@ impl WebSocketClient for SolanaWebSocketClient {
                                             .flatten()
                                             .map(
                                                 |trade| {
-                                                    stream_message =
-                                                        Some(format!("Trade detected: {:?}", trade))
+                                                    stream_message = Some(format!(
+                                                        "Trade detected: {}",
+                                                        trade.to_string()
+                                                    ))
                                                 },
                                             );
                                         }

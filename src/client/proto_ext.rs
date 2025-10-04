@@ -33,14 +33,14 @@ impl fmt::Display for Holding {
         };
         write!(
             f,
-            "{} ({}) - Balance: {}, Price: {}, Value: {}",
+            "  {} ({}) - Balance: {}, Price: {}, Value: {}",
             self.name, self.symbol, self.balance, price_str, value_str
         )
     }
 }
 
 impl Transfer {
-    fn to_string(&self) -> String {
+    fn to_short_string(&self) -> String {
         let mut token_info = String::new();
         if let Some(name) = &self.name {
             token_info.push_str(&name);
@@ -57,18 +57,17 @@ impl Transfer {
             token_info.push_str(&self.mint[&self.mint.len() - 4..]);
         }
 
-        let (price_str, value_str) = if let Some(price) = self.usd_price {
-            (fmt_usd(price), fmt_usd(price * self.amount))
+        let value_str = if let Some(price) = self.usd_price {
+            fmt_usd(price * self.amount)
         } else {
-            ("N/A".to_string(), "N/A".to_string())
+            "N/A".to_string()
         };
 
         format!(
-            "  {} Amount {} Price {} Value {}",
+            "  {} Amount: {} Current Value: {}",
             token_info,
             fmt_token(self.amount),
-            price_str,
-            value_str
+            value_str,
         )
     }
 }
@@ -90,13 +89,13 @@ impl Trade {
         res.push("From:".to_string());
 
         for item in self.from.iter() {
-            res.push(item.to_string());
+            res.push(item.to_short_string());
         }
 
         res.push("To:".to_string());
 
         for item in self.to.iter() {
-            res.push(item.to_string());
+            res.push(item.to_short_string());
         }
 
         res

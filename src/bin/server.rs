@@ -5,7 +5,7 @@ use sol_trace::server::{
     run_server,
     services::{HashmapTokenStore, JupiterRpcClient, SolanaRpcClient, SolanaWebSocketClient},
     states::AppState,
-    utils::init_tracing,
+    utils::{constants::SOLANA_WS_URL, init_tracing},
 };
 use tokio::sync::RwLock;
 
@@ -24,9 +24,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let client2 = reqwest::Client::new();
     let on_chain_rpc_client = Arc::new(SolanaRpcClient::build(client2));
 
-    let ws_url = "wss://api.mainnet-beta.solana.com/".to_string();
+    //let ws_url = "wss://api.mainnet-beta.solana.com/".to_string();
     let ws_client_factory: Arc<dyn Fn() -> Box<dyn WebSocketClient + Send + Sync> + Send + Sync> =
-        Arc::new(move || Box::new(SolanaWebSocketClient::new(ws_url.clone().as_str())));
+        Arc::new(move || Box::new(SolanaWebSocketClient::new(&SOLANA_WS_URL)));
 
     let state = AppState::new(
         token_store,
