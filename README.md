@@ -14,7 +14,16 @@ The communication between the server and clients is implemented using **gRPC**, 
 
 ## Features
 
-...coming
+When starting the client, we need to specify the wallet and the tokens we want to examine in a config file.
+
+Features:
+
+- Open and close the subscription for the given wallet's live trades. Command: **sub** / **unsub**
+- Get the current portfolio with the latest usd prices. Commad: **hold**
+- If a transaction is a trade, return its details. For now, it is more of a debug function, and calculates the trade value by the current usd price, not historical price. Command: **tx [hash]**
+- historic trade: coming soon
+- position history: coming soon
+- position metrics: coming soon
 
 ## Server Responsibilities
 
@@ -36,18 +45,19 @@ The communication between the server and clients is implemented using **gRPC**, 
 
 ## Client Responsibilities (CLI)
 
-- Provides a simple user interface for:
+- Provides a terminal user interface for:
   - Sending unary queries
   - Initiating streaming queries to receive continuous updates.
   - Managing subscriptions.
+  - Shows logs
 - Uses gRPC stubs to communicate with the server.
 - Outputs received responses and streaming events in real time.
 
-## Typical Workflow
+## Run
 
-## Build & Run
+cargo run --bin server
 
-## CLI usage
+cargo run --bin client -- --config .\client_config.toml
 
 ## License
 

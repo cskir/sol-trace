@@ -21,3 +21,15 @@ fn fmt_ccy(value: f64, ccy: &str) -> String {
         frac_part
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fmt() {
+        let value: f64 = 123456789.1234;
+        assert_eq!("123,456,789.12", fmt_token(value));
+        assert_eq!("$123,456,789.12", fmt_usd(value));
+    }
+}
